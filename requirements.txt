@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+pydantic
+pyswisseph
+korean_lunar_calendar
