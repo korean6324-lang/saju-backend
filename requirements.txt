@@ -1,5 +1,5 @@
-fastapi
-uvicorn
-pydantic
-pyswisseph
-korean_lunar_calendar
+fastapi==0.103.1
+uvicorn==0.23.2
+ephem==4.1.4
+pydantic==2.3.0
+redis==5.0.0

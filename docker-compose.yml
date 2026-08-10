@@ -1,0 +1,31 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  saju_b2b_api:
+    build: .
+    container_name: saju_b2b_engine
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=redis_cache
+      - REDIS_PORT=6379
+    depends_on:
+      - redis_cache
+    networks:
+      - engine_network
+
+  redis_cache:
+    image: redis:alpine
+    container_name: saju_redis_cache
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning
+    networks:
+      - engine_network
+
+networks:
+  engine_network:
+    driver: bridge
