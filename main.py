@@ -3,7 +3,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 from core_astro import core_astro_service
 from core_mechanics import core_mechanics_service
@@ -11,11 +11,7 @@ from logic_dynamics import logic_dynamics_service
 from logic_fengshui import logic_fengshui_service
 from db_dictionary import db_dictionary_service
 
-app = FastAPI(
-    title="초정밀 사주·풍수명리 B2B 백엔드 엔진",
-    description="NASA 천체력 기반 진기(進氣) 보정 및 한문-한글 융합 메타데이터를 제공하는 전문가용 API",
-    version="1.0.0"
-)
+app = FastAPI(title="초정밀 사주·풍수명리 B2B 백엔드 엔진")
 
 app.add_middleware(
     CORSMiddleware,
@@ -34,34 +30,31 @@ class UserBirthInput(BaseModel):
 class FengShuiMatchInput(BaseModel):
     my_birth_year: int = Field(..., description="본인의 출생 연도 (입춘 기준)")
     my_gender: str = Field(..., description="본인 성별 ('M' 또는 'F')")
-    target_gua: int = Field(..., description="상대방의 본명궁 번호 또는 목적지 방위 번호 (1~9)")
+    target_gua: int = Field(..., description="상대방의 본명궁 번호 (1~9)")
 
-@app.post("/api/v1/engine/full-analysis", summary="명리·풍수 풀스택 종합 분석기")
+@app.post("/api/v1/engine/full-analysis")
 async def get_full_analysis(user_info: UserBirthInput) -> Dict[str, Any]:
     try:
-        # [Step 1] Core Astro: 초정밀 사주 원국 추출 
-        bazi = core_astro_service.calculate_bazi(
-            user_info.birth_dt, 
-            user_info.is_lunar, 
-            user_info.is_leap_month
-        )
-        stems = [bazi["year_pillar"][0], bazi["month_pillar"][0], bazi["day_pillar"][0], bazi["hour_pillar"][0]]
-        branches = [bazi["year_pillar"][1], bazi["month_pillar"][1], bazi["day_pillar"][1], bazi["hour_pillar"][1]]
+        # [Step 1] 원국 추출
+        bazi = core_astro_service.calculate_bazi(user_info.birth_dt, user_info.is_lunar, user_info.is_leap_month)
+        pillars_list = [bazi["year_pillar"], bazi["month_pillar"], bazi["day_pillar"], bazi["hour_pillar"]]
+        stems = [p[0] for p in pillars_list]
+        branches = [p[1] for p in pillars_list]
         
-        # [Step 2] Root & Mechanics: 십성, 12운성, 통근 분석 (★ 이번에 고도화된 부분)
+        # [Step 2] 십성, 12운성, 통근 분석
         pillar_analysis = core_mechanics_service.analyze_pillars_full(stems, branches)
         tonggeun_data = core_mechanics_service.analyze_tonggeun(stems, branches)
         
-        # [Step 3] Advanced Dynamics: 보이지 않는 기운(허자) 및 충(沖) 분석
+        # [Step 3] 역동성 및 신살 스캔 (★ 가짜 데이터 삭제, 실시간 스캔 적용)
         heoja_list = logic_dynamics_service.scan_heoja_gonghyeop(branches)
         clash_data = logic_dynamics_service.analyze_clash(branches)
+        detected_shinsals = logic_dynamics_service.scan_special_shinsal(pillars_list)
         
-        # [Step 4] Feng Shui: 삼원갑자 본명궁 도출
+        # [Step 4] 풍수 본명궁 도출
         bonmyeonggung = logic_fengshui_service.calculate_bonmyeonggung(user_info.birth_dt.year, user_info.gender)
         
-        # [Step 5] Expert DB: 흉액 직언 및 개운법 (차후 업데이트 예정)
-        mock_sals = ["백호대살", "천라지망"] 
-        prescription_data = db_dictionary_service.diagnose_salsal(mock_sals)
+        # [Step 5] 전문가 처방 DB 매핑 (★ 스캔된 진짜 신살만 처방)
+        prescription_data = db_dictionary_service.diagnose_salsal(detected_shinsals)
         
         return {
             "status": "success",
@@ -69,7 +62,7 @@ async def get_full_analysis(user_info: UserBirthInput) -> Dict[str, Any]:
             "data": {
                 "bazi_pillars": bazi,
                 "mechanics": {
-                    "pillar_analysis": pillar_analysis, # 십성/12운성 데이터 프론트로 전송
+                    "pillar_analysis": pillar_analysis,
                     "tonggeun": tonggeun_data,
                     "heoja_gonghyeop": heoja_list,
                     "clash_analysis": clash_data
@@ -79,18 +72,13 @@ async def get_full_analysis(user_info: UserBirthInput) -> Dict[str, Any]:
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"엔진 연산 중 치명적 오류 발생: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"엔진 연산 에러: {str(e)}")
 
-@app.post("/api/v1/fengshui/match", summary="구성기학 8대 길흉 궁합 및 방위 연산")
+@app.post("/api/v1/fengshui/match")
 async def get_fengshui_match(match_info: FengShuiMatchInput) -> Dict[str, Any]:
     my_profile = logic_fengshui_service.calculate_bonmyeonggung(match_info.my_birth_year, match_info.my_gender)
     match_result = logic_fengshui_service.evaluate_match_and_direction(my_profile["gua_number"], match_info.target_gua)
-    
-    return {
-        "my_profile": my_profile,
-        "target_gua": match_info.target_gua,
-        "match_analysis": match_result
-    }
+    return {"my_profile": my_profile, "target_gua": match_info.target_gua, "match_analysis": match_result}
 
 if __name__ == "__main__":
     import uvicorn
