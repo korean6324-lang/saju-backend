@@ -224,13 +224,21 @@ JIJI_JAHYUNG = ["진", "오", "유", "해"]
 JIJI_GWIMUN = [{"자", "유"}, {"축", "오"}, {"인", "미"}, {"묘", "신"}, {"진", "해"}, {"사", "술"}]
 SHIPY_UNSEONG = ["장생", "목욕", "관대", "건록", "제왕", "쇠", "병", "사", "묘", "절", "태", "양"]
 
-# 🌟 [천문학 모듈 교체] NASA 수준의 ephem을 이용한 태양 황경 및 절기 계산
+
+# 🌟 [엔진 수술 핵심 영역] 천문학 모듈 - 진태양 겉보기 황경 정밀 계산
 def get_sun_longitude_ephem(dt: datetime.datetime) -> float:
-    # 한국 표준시(KST)를 기준으로 받은 datetime을 UTC로 변환
+    # 1. KST를 UTC로 변환
     utc_dt = dt - datetime.timedelta(hours=9)
-    sun = ephem.Sun(utc_dt)
-    ecl = ephem.Ecliptic(sun)
+    sun = ephem.Sun()
+    sun.compute(utc_dt)
+    
+    # 2. 광행차와 장동이 모두 반영된 '겉보기 적도 좌표(a_ra, a_dec)'를 추출
+    # 3. 계산하려는 바로 그 시점(epoch=utc_dt)의 황도 좌표계로 정밀 변환
+    eq = ephem.Equatorial(sun.a_ra, sun.a_dec, epoch=utc_dt)
+    ecl = ephem.Ecliptic(eq)
+    
     return math.degrees(ecl.lon)
+
 
 def find_jeolgi_time_ephem(target_year: int, target_degree: float, search_start_month: int, search_start_day: int) -> datetime.datetime:
     start_dt = datetime.datetime(target_year, search_start_month, search_start_day, 0, 0, 0)
@@ -452,7 +460,6 @@ def calculate_daewun(birth_dt, gender, year_stem, month_ganji, day_stem, current
     current_rule = MONTH_RULES[current_month_idx]
     next_rule = MONTH_RULES[(current_month_idx + 1) % 12]
     
-    # 🌟 [ephem 모듈 반영] 모든 연산에서 find_jeolgi_time_ephem 활용
     prev_jeolgi = find_jeolgi_time_ephem(saju_year + current_rule["y_offset"], current_rule["deg"], current_rule["m_start"], 1)
     next_jeolgi = find_jeolgi_time_ephem(saju_year + next_rule["y_offset"], next_rule["deg"], next_rule["m_start"], 1)
     
@@ -495,6 +502,8 @@ def calculate_seun(birth_year: int, day_stem: str, start_year: int, count: int, 
         })
     return seun_list
 
+
+# 🌟 [엔진 수술 핵심 영역] 사주 원국 추출 - 억지 예외 처리 삭제 및 천문 법칙 순응
 def get_saju_pillars(birth_dt, is_time_unknown: bool):
     base_date = datetime.date(2000, 1, 1)
     delta_days = (birth_dt.date() - base_date).days
@@ -511,11 +520,7 @@ def get_saju_pillars(birth_dt, is_time_unknown: bool):
         time_pillar = [CHEONGAN[time_stem_idx], JIJI[time_branch_idx]]
         
     ipchun_time = find_jeolgi_time_ephem(birth_dt.year, 315, 2, 1)
-    
-    if is_time_unknown and birth_dt.date() == ipchun_time.date():
-        saju_year = birth_dt.year
-    else:
-        saju_year = birth_dt.year if birth_dt >= ipchun_time else birth_dt.year - 1
+    saju_year = birth_dt.year if birth_dt >= ipchun_time else birth_dt.year - 1
         
     year_delta = saju_year - 1984
     
@@ -523,12 +528,8 @@ def get_saju_pillars(birth_dt, is_time_unknown: bool):
     for i, rule in enumerate(MONTH_RULES):
         jeolgi_dt = find_jeolgi_time_ephem(saju_year + rule["y_offset"], rule["deg"], rule["m_start"], 1)
         
-        # 🌟 [엔진 수정: 1946년 11월 14일 경자월 문제 완벽 해결]
-        # 진기(進氣) 법칙 적용: 입절일 당일에 시간이 미상일 경우, 이미 다가오는 달의 기운이 당령했다고 판단하여
-        # 새로운 월주로 처리함. (예: 대설 당일에 시 미상이면 기해월이 아닌 경자월 세팅)
-        if is_time_unknown and birth_dt.date() == jeolgi_dt.date():
-            current_month_idx = i
-        elif birth_dt >= jeolgi_dt:
+        # 억지로 월주를 넘기는 예외 처리 삭제. 순수하게 계산된 정확한 입절 시간과 입력 시간을 비교
+        if birth_dt >= jeolgi_dt:
             current_month_idx = i
         else:
             break
@@ -670,7 +671,6 @@ def analyze_dynamic_relations(pillars_dict, daewun_list, seun_list, current_year
         u_stem, u_branch = un_ganji[0], un_ganji[1]
         used_original_indices_for_3hap = set()
         
-        # 지지 삼합/방합 판단
         for i, j in itertools.combinations(range(4), 2):
             p1, p2 = branches[i], branches[j]
             if p1 == "?" or p2 == "?": continue
@@ -685,18 +685,15 @@ def analyze_dynamic_relations(pillars_dict, daewun_list, seun_list, current_year
                         relations.append({"un_type": un_label, "name": f"{''.join(subset)}방합", "type": "지지방합", "target_pillar": f"{positions[i]}·{positions[j]}", "description": f"운의 '{u_branch}'이 원국의 '{p1}', '{p2}'와 만나 {bh['elem']} 기운의 방합을 이룹니다."})
                         used_original_indices_for_3hap.update([i, j])
                         
-        # 천간 및 지지 단일 상호작용 판단
         for idx, pos in enumerate(positions):
             p_stem, p_branch = stems[idx], branches[idx]
             if p_stem == "?" or p_branch == "?": continue
             
-            # 천간합, 충
             if u_stem + p_stem in CHEONGAN_HAP: 
                 relations.append({"un_type": un_label, "name": f"{u_stem}{p_stem}합", "type": "천간합(기반)", "target_pillar": pos, "description": f"천간 '{u_stem}'과 원국 {pos}의 '{p_stem}'이 합을 이룹니다."})
             if {u_stem, p_stem} in CHEONGAN_CHUNG: 
                 relations.append({"un_type": un_label, "name": f"{u_stem}{p_stem}충", "type": "천간충", "target_pillar": pos, "description": f"천간 '{u_stem}'과 원국 {pos}의 '{p_stem}'이 충돌합니다."})
             
-            # 지지합, 충, 원진, 형
             if u_branch + p_branch in JIJI_YUKHAP: 
                 relations.append({"un_type": un_label, "name": f"{u_branch}{p_branch}합", "type": "지지육합", "target_pillar": pos, "description": f"지지 '{u_branch}'과 원국 {pos}의 '{p_branch}'이 육합을 이룹니다."})
             if {u_branch, p_branch} in JIJI_CHUNG: 
@@ -773,7 +770,6 @@ def calculate_saju_api(request: SajuRequest):
         day_stem, day_branch = pillars_data["일주"]["ganji"][0], pillars_data["일주"]["ganji"][1]
         iljin_info = get_iljin(datetime.datetime.now().date(), day_stem, day_branch, gongmang_list)
         
-        # 🌟 8월(월운) 버그 수정된 부분 + ephem 도입 적용
         now_dt = datetime.datetime.now()
         curr_saju_year = current_year if now_dt >= find_jeolgi_time_ephem(current_year, 315, 2, 1) else current_year - 1
         year_delta_curr = curr_saju_year - 1984
@@ -846,7 +842,6 @@ def calculate_gunghap_api(request: GunghapRequest):
 
         score = 50 
         
-        # 1. 오행 보완 (서로의 용신을 가지고 있는지)
         me_strongest = sorted(me_data["elements"].items(), key=lambda x: x[1], reverse=True)[0][0]
         pt_strongest = sorted(partner_data["elements"].items(), key=lambda x: x[1], reverse=True)[0][0]
         
@@ -859,7 +854,6 @@ def calculate_gunghap_api(request: GunghapRequest):
         elif complement_points == 15: element_desc = "한 사람이 상대방의 부족한 기운을 채워주는 좋은 보완 관계입니다. 일방적인 의지보다는 서로 배려하면 더욱 좋습니다."
         score += complement_points
 
-        # 2. 천간 상호작용 (정신적, 가치관 유대감)
         heavenly_desc = "서로의 생각과 가치관이 무난하게 잘 융화되는 관계입니다."
         if me_day_stem != "?" and pt_day_stem != "?":
             if me_day_stem + pt_day_stem in CHEONGAN_HAP or pt_day_stem + me_day_stem in CHEONGAN_HAP:
@@ -872,7 +866,6 @@ def calculate_gunghap_api(request: GunghapRequest):
                 score += 5
                 heavenly_desc = "마치 거울을 보는 것처럼 서로의 마음을 잘 이해하는 친구 같은 편안함이 있습니다."
 
-        # 3. 지지 상호작용 (현실적, 육체적, 환경적 조화)
         earthly_desc = "현실적인 환경과 일상생활의 패턴이 무난하게 어우러집니다."
         if me_day_branch != "?" and pt_day_branch != "?":
             if me_day_branch + pt_day_branch in JIJI_YUKHAP or pt_day_branch + me_day_branch in JIJI_YUKHAP:
@@ -895,7 +888,6 @@ def calculate_gunghap_api(request: GunghapRequest):
 
         score = max(0, min(100, score)) 
 
-        # 4. 종합 평가
         if score >= 90: summary = "더할 나위 없이 완벽한 찰떡궁합입니다! 서로가 서로를 빛나게 해주는 인연입니다."
         elif score >= 75: summary = "아주 좋은 궁합입니다. 서로에게 끌림이 강하고 상호 보완이 잘 되는 긍정적인 관계입니다."
         elif score >= 60: summary = "무난하고 평탄한 궁합입니다. 서로의 다름을 인정하고 배려한다면 안정적인 관계를 유지할 수 있습니다."
