@@ -31,8 +31,10 @@ app.add_middleware(
 
 # --- Pydantic Request Models ---
 class UserBirthInput(BaseModel):
-    birth_dt: datetime = Field(..., description="생년월일시 (KST 기준). 예: '1946-12-07T10:00:00'")
-    gender: str = Field(..., description="성별 ('M' 또는 'F')", pattern="^(M|F)$")
+    birth_dt: datetime = Field(..., description="생년월일시 (KST 기준)")
+    gender: str = Field(..., description="성별 ('M' 또는 'F')")
+    is_lunar: bool = Field(default=False, description="음력 여부")
+    is_leap_month: bool = Field(default=False, description="윤달 여부")
 
 class FengShuiMatchInput(BaseModel):
     my_birth_year: int = Field(..., description="본인의 출생 연도 (입춘 기준)")
@@ -48,10 +50,12 @@ async def get_full_analysis(user_info: UserBirthInput) -> Dict[str, Any]:
     모든 MSA 모듈을 관통하여 종합 결과를 반환하는 마스터 엔드포인트입니다.
     """
     try:
-        # [Step 1] Core Astro: 초정밀 사주 원국 추출 (교접기/진기 특수 보정 포함)
-        # * 내부적으로 1946년 음력 11월 14일(양력 12월 7일) 대설 교접기 진기(進氣) 보정 등 
-        #   정밀한 명리학적 예외 처리가 가동됩니다.
-        bazi = core_astro_service.calculate_bazi(user_info.birth_dt)
+        # [Step 1] Core Astro: 초정밀 사주 원국 추출 (음력/윤달 변환 및 교접기/진기 특수 보정 포함)
+        bazi = core_astro_service.calculate_bazi(
+            user_info.birth_dt, 
+            user_info.is_lunar, 
+            user_info.is_leap_month
+        )
         stems = [bazi["year_pillar"][0], bazi["month_pillar"][0], bazi["day_pillar"][0], bazi["hour_pillar"][0]]
         branches = [bazi["year_pillar"][1], bazi["month_pillar"][1], bazi["day_pillar"][1], bazi["hour_pillar"][1]]
         
