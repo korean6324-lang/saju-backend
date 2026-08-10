@@ -11,7 +11,7 @@ from korean_lunar_calendar import KoreanLunarCalendar
 # ==========================================
 # 1. FastAPI 인스턴스 및 CORS 설정
 # ==========================================
-app = FastAPI(title="초정밀 사주 명리 API 서버 (진기 법칙 및 가독성 복원 완료)", version="5.1")
+app = FastAPI(title="초정밀 사주 명리 API 서버 (순수 천문학적 칼절기 기준)", version="6.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -418,7 +418,7 @@ def get_iljin(target_date: datetime.date, user_day_stem: str, user_day_branch: s
     }
 
 # ==========================================
-# 🌟 사주 원국 추출 (진기 법칙 반영)
+# 🌟 사주 원국 추출 (순수 천문학적 칼절기 기준)
 # ==========================================
 def get_saju_pillars(birth_dt, is_time_unknown: bool):
     base_date = datetime.date(2000, 1, 1)
@@ -438,28 +438,23 @@ def get_saju_pillars(birth_dt, is_time_unknown: bool):
         time_stem_idx = (((day_stem_idx % 5) * 2 + time_branch_idx) % 10)
         time_pillar = [CHEONGAN[time_stem_idx], JIJI[time_branch_idx]]
         
-    # 진기(進氣) 임계 구역: 입절일 24시간(86400초) 이내
-    JIN_GI_SECONDS = 86400 
-    
+    # 년주 계산 (입춘 기준 엄격한 컷오프)
     ipchun_time = find_jeolgi_time_ephem(birth_dt.year, 315, 2, 1)
     
     if birth_dt >= ipchun_time:
         saju_year = birth_dt.year
-    elif (ipchun_time - birth_dt).total_seconds() <= JIN_GI_SECONDS:
-        saju_year = birth_dt.year # 진기 구역에 해당하므로 새해 기운 편입
     else:
         saju_year = birth_dt.year - 1
         
     year_delta = saju_year - 1984
     
+    # 월주 계산 (해당 월의 절기 기준 엄격한 컷오프)
     current_month_idx = 0
     for i, rule in enumerate(MONTH_RULES):
         jeolgi_dt = find_jeolgi_time_ephem(saju_year + rule["y_offset"], rule["deg"], rule["m_start"], 1)
         
         if birth_dt >= jeolgi_dt:
             current_month_idx = i
-        elif (jeolgi_dt - birth_dt).total_seconds() <= JIN_GI_SECONDS:
-            current_month_idx = i # 입절 24시간 이내라면 다음 달 기운(진기) 편입
         else:
             break
             
@@ -966,7 +961,7 @@ def calculate_saju_api(request: SajuRequest):
         day_stem, day_branch = pillars_data["일주"]["ganji"][0], pillars_data["일주"]["ganji"][1]
         iljin_info = get_iljin(datetime.datetime.now().date(), day_stem, day_branch, gongmang_list)
         
-        # 월운 추출 (가독성 복원)
+        # 월운 추출
         now_dt = datetime.datetime.now()
         ipchun_curr = find_jeolgi_time_ephem(current_year, 315, 2, 1)
         curr_saju_year = current_year if now_dt >= ipchun_curr else current_year - 1
