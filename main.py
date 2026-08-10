@@ -1,7 +1,6 @@
-import ephem
+import swisseph as swe
 import datetime
 import itertools
-import math
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
@@ -132,7 +131,7 @@ class JohuData(BaseModel):
 class DynamicRelationData(BaseModel):
     un_type: str
     name: str
-    type: str          
+    type: str          # 🌟 누락되었던 type 필드 추가 (모달 연결 해결!)
     target_pillar: str
     description: str
 
@@ -150,6 +149,7 @@ class SajuResponse(BaseModel):
     johu: JohuData
     dynamic_relations: List[DynamicRelationData]
 
+# 🌟 궁합 모드용 스키마
 class PersonSaju(BaseModel):
     year: int
     month: int
@@ -176,6 +176,8 @@ class GunghapResponse(BaseModel):
 # ==========================================
 # 3. 사주 명리 계산 엔진
 # ==========================================
+KST_OFFSET = datetime.timedelta(hours=9)
+
 CHEONGAN = ["갑", "을", "병", "정", "무", "기", "경", "신", "임", "계"]
 JIJI = ["자", "축", "인", "묘", "진", "사", "오", "미", "신", "유", "술", "해"]
 GAPJA_60 = [CHEONGAN[i % 10] + JIJI[i % 12] for i in range(60)]
@@ -224,35 +226,28 @@ JIJI_JAHYUNG = ["진", "오", "유", "해"]
 JIJI_GWIMUN = [{"자", "유"}, {"축", "오"}, {"인", "미"}, {"묘", "신"}, {"진", "해"}, {"사", "술"}]
 SHIPY_UNSEONG = ["장생", "목욕", "관대", "건록", "제왕", "쇠", "병", "사", "묘", "절", "태", "양"]
 
-# 🌟 [천문학 모듈 교체] NASA 수준의 ephem을 이용한 태양 황경 및 절기 계산
-def get_sun_longitude_ephem(dt: datetime.datetime) -> float:
-    # 한국 표준시(KST)를 기준으로 받은 datetime을 UTC로 변환
-    utc_dt = dt - datetime.timedelta(hours=9)
-    sun = ephem.Sun(utc_dt)
-    ecl = ephem.Ecliptic(sun)
-    return math.degrees(ecl.lon)
+def get_sun_longitude(jd):
+    res, _ = swe.calc_ut(jd, swe.SUN, swe.FLG_SWIEPH)
+    return res[0]
 
-def find_jeolgi_time_ephem(target_year: int, target_degree: float, search_start_month: int, search_start_day: int) -> datetime.datetime:
-    start_dt = datetime.datetime(target_year, search_start_month, search_start_day, 0, 0, 0)
-    left = start_dt
-    right = start_dt + datetime.timedelta(days=16)
-    
-    # 50회의 이진 탐색으로 분/초 단위까지 정밀한 입절 시점 도출
+def find_jeolgi_time(target_year, target_degree, search_start_month, search_start_day):
+    jd_start = swe.julday(target_year, search_start_month, search_start_day, 0.0)
+    jd_end = jd_start + 16.0 
+    left, right = jd_start, jd_end
     for _ in range(50):
-        mid = left + (right - left) / 2
-        mid_lon = get_sun_longitude_ephem(mid)
-        
+        mid = (left + right) / 2.0
+        mid_lon = get_sun_longitude(mid)
         diff = mid_lon - target_degree
         if diff > 180: diff -= 360
         elif diff < -180: diff += 360
-        
-        if diff < 0:
-            left = mid
-        else:
-            right = mid
-            
-    exact_time = left + (right - left) / 2
-    return exact_time.replace(microsecond=0)
+        if diff < 0: left = mid
+        else: right = mid
+    exact_jd = (left + right) / 2.0
+    year, month, day, hour_float = swe.revjul(exact_jd)
+    hours = int(hour_float)
+    minutes = int((hour_float - hours) * 60)
+    seconds = int((((hour_float - hours) * 60) - minutes) * 60)
+    return datetime.datetime(year, month, day, hours, minutes, seconds) + KST_OFFSET
 
 def get_sipseong(day_stem: str, target_char: str, is_branch: bool = False) -> str:
     if day_stem == "?" or target_char == "?": return "-"
@@ -452,9 +447,8 @@ def calculate_daewun(birth_dt, gender, year_stem, month_ganji, day_stem, current
     current_rule = MONTH_RULES[current_month_idx]
     next_rule = MONTH_RULES[(current_month_idx + 1) % 12]
     
-    # 🌟 [ephem 모듈 반영] 모든 연산에서 find_jeolgi_time_ephem 활용
-    prev_jeolgi = find_jeolgi_time_ephem(saju_year + current_rule["y_offset"], current_rule["deg"], current_rule["m_start"], 1)
-    next_jeolgi = find_jeolgi_time_ephem(saju_year + next_rule["y_offset"], next_rule["deg"], next_rule["m_start"], 1)
+    prev_jeolgi = find_jeolgi_time(saju_year + current_rule["y_offset"], current_rule["deg"], current_rule["m_start"], 1)
+    next_jeolgi = find_jeolgi_time(saju_year + next_rule["y_offset"], next_rule["deg"], next_rule["m_start"], 1)
     
     diff_seconds = (next_jeolgi - birth_dt).total_seconds() if is_forward else (birth_dt - prev_jeolgi).total_seconds()
     diff_days = diff_seconds / (24 * 3600)
@@ -510,29 +504,15 @@ def get_saju_pillars(birth_dt, is_time_unknown: bool):
         time_stem_idx = (((day_stem_idx % 5) * 2 + time_branch_idx) % 10)
         time_pillar = [CHEONGAN[time_stem_idx], JIJI[time_branch_idx]]
         
-    ipchun_time = find_jeolgi_time_ephem(birth_dt.year, 315, 2, 1)
-    
-    if is_time_unknown and birth_dt.date() == ipchun_time.date():
-        saju_year = birth_dt.year
-    else:
-        saju_year = birth_dt.year if birth_dt >= ipchun_time else birth_dt.year - 1
-        
+    ipchun_time = find_jeolgi_time(birth_dt.year, 315, 2, 1)
+    saju_year = birth_dt.year if birth_dt >= ipchun_time else birth_dt.year - 1
     year_delta = saju_year - 1984
     
     current_month_idx = 0
     for i, rule in enumerate(MONTH_RULES):
-        jeolgi_dt = find_jeolgi_time_ephem(saju_year + rule["y_offset"], rule["deg"], rule["m_start"], 1)
-        
-        # 🌟 [엔진 수정: 1946년 11월 14일 경자월 문제 완벽 해결]
-        # 진기(進氣) 법칙 적용: 입절일 당일에 시간이 미상일 경우, 이미 다가오는 달의 기운이 당령했다고 판단하여
-        # 새로운 월주로 처리함. (예: 대설 당일에 시 미상이면 기해월이 아닌 경자월 세팅)
-        if is_time_unknown and birth_dt.date() == jeolgi_dt.date():
-            current_month_idx = i
-        elif birth_dt >= jeolgi_dt:
-            current_month_idx = i
-        else:
-            break
-            
+        if birth_dt >= find_jeolgi_time(saju_year + rule["y_offset"], rule["deg"], rule["m_start"], 1): current_month_idx = i
+        else: break
+    
     year_pillar = [CHEONGAN[year_delta % 10], JIJI[year_delta % 12]]
     month_pillar = [CHEONGAN[((year_delta % 10 % 5) * 2 + 2 + current_month_idx) % 10], JIJI[MONTH_RULES[current_month_idx]["branch_idx"]]]
     
@@ -540,8 +520,7 @@ def get_saju_pillars(birth_dt, is_time_unknown: bool):
     gongmang_list = get_gongmang(day_stem, day_branch)
     
     def build_pillar_data(stem, branch, is_day=False):
-        if stem == "?" or branch == "?": 
-            return {"ganji": ["?", "?"], "sipseong": ["-", "-"], "jijanggan": [], "sinsal": [], "shipi": "-", "is_gongmang": False}
+        if stem == "?" or branch == "?": return {"ganji": ["?", "?"], "sipseong": ["-", "-"], "jijanggan": [], "sinsal": [], "shipi": "-", "is_gongmang": False}
         ganji_str = stem + branch
         sinsal_list = [get_12sinsal(day_branch, branch)] + get_special_sinsal(day_stem, branch, ganji_str)
         return {
@@ -552,13 +531,10 @@ def get_saju_pillars(birth_dt, is_time_unknown: bool):
         }
     
     return {
-        "년주": build_pillar_data(year_pillar[0], year_pillar[1]), 
-        "월주": build_pillar_data(month_pillar[0], month_pillar[1]),
-        "일주": build_pillar_data(day_pillar[0], day_pillar[1], is_day=True), 
-        "시주": build_pillar_data(time_pillar[0], time_pillar[1]),
+        "년주": build_pillar_data(year_pillar[0], year_pillar[1]), "월주": build_pillar_data(month_pillar[0], month_pillar[1]),
+        "일주": build_pillar_data(day_pillar[0], day_pillar[1], is_day=True), "시주": build_pillar_data(time_pillar[0], time_pillar[1]),
         "_meta": {"current_month_idx": current_month_idx, "saju_year": saju_year, "gongmang_list": gongmang_list}
     }
-    
 
 def analyze_elements_precision(pillars_dict):
     elements = {"목": 0.0, "화": 0.0, "토": 0.0, "금": 0.0, "수": 0.0}
@@ -773,14 +749,14 @@ def calculate_saju_api(request: SajuRequest):
         day_stem, day_branch = pillars_data["일주"]["ganji"][0], pillars_data["일주"]["ganji"][1]
         iljin_info = get_iljin(datetime.datetime.now().date(), day_stem, day_branch, gongmang_list)
         
-        # 🌟 8월(월운) 버그 수정된 부분 + ephem 도입 적용
-        now_dt = datetime.datetime.now()
-        curr_saju_year = current_year if now_dt >= find_jeolgi_time_ephem(current_year, 315, 2, 1) else current_year - 1
+        # 🌟 8월(월운) 버그 수정된 부분 (정상 루프)
+        curr_saju_year = current_year if datetime.datetime.now() >= find_jeolgi_time(current_year, 315, 2, 1) else current_year - 1
         year_delta_curr = curr_saju_year - 1984
         
         curr_m_idx = 0
+        now_dt = datetime.datetime.now()
         for i, rule in enumerate(MONTH_RULES):
-            if now_dt >= find_jeolgi_time_ephem(curr_saju_year + rule["y_offset"], rule["deg"], rule["m_start"], 1): 
+            if now_dt >= find_jeolgi_time(curr_saju_year + rule["y_offset"], rule["deg"], rule["m_start"], 1): 
                 curr_m_idx = i
             else: 
                 break
