@@ -505,14 +505,29 @@ def get_saju_pillars(birth_dt, is_time_unknown: bool):
         time_pillar = [CHEONGAN[time_stem_idx], JIJI[time_branch_idx]]
         
     ipchun_time = find_jeolgi_time(birth_dt.year, 315, 2, 1)
-    saju_year = birth_dt.year if birth_dt >= ipchun_time else birth_dt.year - 1
+    
+    # 🌟 [엔진 수정 1: 년주 보정] 
+    # 입춘 당일이면서 태어난 시간을 정확히 모를 경우, 명리학적 진기를 적용해 새로운 해(년주)로 편입합니다.
+    if is_time_unknown and birth_dt.date() == ipchun_time.date():
+        saju_year = birth_dt.year
+    else:
+        saju_year = birth_dt.year if birth_dt >= ipchun_time else birth_dt.year - 1
+        
     year_delta = saju_year - 1984
     
     current_month_idx = 0
     for i, rule in enumerate(MONTH_RULES):
-        if birth_dt >= find_jeolgi_time(saju_year + rule["y_offset"], rule["deg"], rule["m_start"], 1): current_month_idx = i
-        else: break
-    
+        jeolgi_dt = find_jeolgi_time(saju_year + rule["y_offset"], rule["deg"], rule["m_start"], 1)
+        
+        # 🌟 [엔진 수정 2: 월주 보정 - 1946년 11월 14일 경자월 문제 해결]
+        # 절기 당일이면서 태어난 시간을 모를 경우, 이미 새로운 달의 기운이 들어온 것으로 처리합니다.
+        if is_time_unknown and birth_dt.date() == jeolgi_dt.date():
+            current_month_idx = i
+        elif birth_dt >= jeolgi_dt:
+            current_month_idx = i
+        else:
+            break
+            
     year_pillar = [CHEONGAN[year_delta % 10], JIJI[year_delta % 12]]
     month_pillar = [CHEONGAN[((year_delta % 10 % 5) * 2 + 2 + current_month_idx) % 10], JIJI[MONTH_RULES[current_month_idx]["branch_idx"]]]
     
@@ -520,7 +535,8 @@ def get_saju_pillars(birth_dt, is_time_unknown: bool):
     gongmang_list = get_gongmang(day_stem, day_branch)
     
     def build_pillar_data(stem, branch, is_day=False):
-        if stem == "?" or branch == "?": return {"ganji": ["?", "?"], "sipseong": ["-", "-"], "jijanggan": [], "sinsal": [], "shipi": "-", "is_gongmang": False}
+        if stem == "?" or branch == "?": 
+            return {"ganji": ["?", "?"], "sipseong": ["-", "-"], "jijanggan": [], "sinsal": [], "shipi": "-", "is_gongmang": False}
         ganji_str = stem + branch
         sinsal_list = [get_12sinsal(day_branch, branch)] + get_special_sinsal(day_stem, branch, ganji_str)
         return {
@@ -531,10 +547,13 @@ def get_saju_pillars(birth_dt, is_time_unknown: bool):
         }
     
     return {
-        "년주": build_pillar_data(year_pillar[0], year_pillar[1]), "월주": build_pillar_data(month_pillar[0], month_pillar[1]),
-        "일주": build_pillar_data(day_pillar[0], day_pillar[1], is_day=True), "시주": build_pillar_data(time_pillar[0], time_pillar[1]),
+        "년주": build_pillar_data(year_pillar[0], year_pillar[1]), 
+        "월주": build_pillar_data(month_pillar[0], month_pillar[1]),
+        "일주": build_pillar_data(day_pillar[0], day_pillar[1], is_day=True), 
+        "시주": build_pillar_data(time_pillar[0], time_pillar[1]),
         "_meta": {"current_month_idx": current_month_idx, "saju_year": saju_year, "gongmang_list": gongmang_list}
     }
+    
 
 def analyze_elements_precision(pillars_dict):
     elements = {"목": 0.0, "화": 0.0, "토": 0.0, "금": 0.0, "수": 0.0}
