@@ -11,7 +11,7 @@ class AstroEngine:
         self.branches = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
 
     def get_solar_longitude(self, dt: datetime) -> float:
-        """NASA 천체력을 이용한 황경 계산"""
+        """NASA 천체력을 이용한 진태양 겉보기 황경 계산"""
         sun = ephem.Sun()
         observer = ephem.Observer()
         observer.date = ephem.Date(dt - timedelta(hours=9)) 
@@ -28,7 +28,7 @@ class AstroEngine:
         return f"{self.stems[stem_idx]}{self.branches[branch_idx]}"
 
     def _get_month_pillar(self, year_stem: str, lon: float) -> str:
-        """절기 기준 월지 및 둔월법 기준 월간 도출"""
+        """절기 황경 기준 월지 및 둔월법(遁月法) 기준 월간 도출"""
         lon_normalized = (lon - 315) % 360
         month_idx = int(lon_normalized // 30)
         month_branch = self.branches[(month_idx + 2) % 12]
@@ -39,19 +39,23 @@ class AstroEngine:
         return f"{self.stems[month_stem_idx]}{month_branch}"
 
     def _get_day_pillar(self, dt: datetime) -> str:
-        """1990-01-01 (병오일) 기준 만세력 일주 완벽 산출 (야자시 적용)"""
+        """[핵심 수정] 2000-01-01 (戊午일) 기준 만세력 일주 완벽 산출 (야자시 적용)"""
         target_dt = dt
         if dt.hour >= 23:
             target_dt = dt + timedelta(days=1)
             
-        # 1990년 1월 1일은 병오(丙午)일 -> 丙(2), 午(6)
-        offset = target_dt.toordinal() - datetime(1990, 1, 1).toordinal()
-        stem_idx = (2 + offset) % 10
+        # 2000년 1월 1일은 정확히 戊午(무오)일 -> 戊(4), 午(6)
+        anchor_date = datetime(2000, 1, 1).toordinal()
+        target_date = target_dt.toordinal()
+        
+        offset = target_date - anchor_date
+        
+        stem_idx = (4 + offset) % 10
         branch_idx = (6 + offset) % 12
         return f"{self.stems[stem_idx]}{self.branches[branch_idx]}"
 
     def _get_hour_pillar(self, day_stem: str, dt: datetime) -> str:
-        """출생 시간 기준 시지 및 둔시법 기준 시간 도출"""
+        """출생 시간 기준 시지 및 둔시법(遁時法) 기준 시간 도출"""
         branch_idx = (dt.hour + 1) // 2 % 12
         day_stem_idx = self.stems.index(day_stem)
         base_stem_idx = ((day_stem_idx % 5) * 2) % 10
@@ -64,6 +68,7 @@ class AstroEngine:
         return standard_month
 
     def convert_to_solar_if_lunar(self, dt: datetime, is_lunar: bool, is_leap_month: bool) -> datetime:
+        """음력을 양력으로 완벽 치환"""
         if not is_lunar:
             return dt
         calendar = KoreanLunarCalendar()
