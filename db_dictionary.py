@@ -3,14 +3,7 @@ from typing import Dict, Any, List
 
 class ExpertPrescriptionDB:
     def __init__(self):
-        # 1. 특수 격국(外格) 및 일반 격국 DB
-        self.gyeokguk_db = {
-            "종살격": {"hanja": "從殺格", "desc": "나를 버리고 관살(권력/조직)의 기운에 순응하는 격. 강한 카리스마와 권력 지향."},
-            "식신제살격": {"hanja": "食神制殺格", "desc": "식신의 기운으로 칠살의 흉폭함을 제압하는 격. 난제를 해결하는 전문가적 기질."}
-            # 향후 일행득기격, 종아격 등 수십 여종의 전문가용 격국 확장
-        }
-        
-        # 2. 흉액 직언(Disease) 및 업상대체(Prescription) DB
+        # 1. 특수 흉살 직언 및 처방 DB
         self.prescription_db = {
             "백호대살": {
                 "hanja": "白虎大殺",
@@ -32,52 +25,35 @@ class ExpertPrescriptionDB:
             }
         }
 
+        # 🚀 2. [신규] 격국(사회적 무기/직업운) DB
+        self.gyeokguk_db = {
+            "정관격": "원칙과 규율을 중시하며, 명예와 관직을 추구하는 관리자형입니다. 공무원, 대기업, 행정 및 인사관리직에 최적화된 무기입니다.",
+            "편관격": "강한 카리스마와 돌파력을 가진 리더형입니다. 군경, 법조, 정치, 혹은 리스크를 다루는 특수직에서 권한을 쥘 때 빛을 발합니다.",
+            "정재격": "꼼꼼하고 안정적인 재물 축적을 선호합니다. 금융, 회계, 세무, 품질관리 등 정확한 숫자를 다루는 일에 탁월한 재능이 있습니다.",
+            "편재격": "공간 지각력과 사업 수완이 뛰어나며 기획에 능합니다. 무역, 유통, 사업가, 투자자, 건축/부동산 등 스케일이 큰 분야에 적합합니다.",
+            "정인격": "학문과 도덕성을 중시하는 지식인형입니다. 학자, 교육자, 연구원, 문화 및 예술 기획 분야에 특화된 수용력을 지녔습니다.",
+            "편인격": "비상한 직관력과 남들이 갖지 못한 특수한 기술을 지녔습니다. IT, 의학, 심리상담, 명리, 전문 프리랜서로 활동할 때 유리합니다.",
+            "식신격": "한 분야를 깊게 파고드는 장인정신과 창의력을 지녔습니다. 연구개발(R&D), 요식업, 전문 기술직, 제조업에 강점이 있습니다.",
+            "상관격": "기존의 틀을 깨는 뛰어난 언변과 자유로운 발상을 가졌습니다. 언론, 방송, 마케팅, IT 개발, 크리에이터, 영업에 탁월합니다.",
+            "건록격": "자수성가형으로 주체성과 독립심이 매우 강합니다. 조직의 리더나 본인의 이름을 건 사업, 자격증을 바탕으로 한 전문직이 어울립니다.",
+            "양인격": "경쟁심과 승부욕이 최고조에 달한 기운입니다. 프로 스포츠 선수나 군경, 혹은 칼을 쥐는 직업(의료, 요리) 등 강한 압력을 다루는 분야에서 대성합니다."
+        }
+
+        # 🚀 3. [신규] 조후/억부 용신(행운의 개운법) DB
+        self.yongshin_db = {
+            "목": {"hanja": "木", "color": "푸른색, 녹색 계열", "food": "신맛 나는 음식, 야채, 나물류", "direction": "동쪽 (머리 두는 방향, 이사)", "advice": "새로운 것을 배우고 시작하는 뻗어나가는 기운이 행운을 부릅니다. 등산이나 식물/화초 가꾸기가 훌륭한 액땜이 됩니다."},
+            "화": {"hanja": "火", "color": "붉은색, 핑크색 계열", "food": "쓴맛 나는 음식, 구운 고기, 커피", "direction": "남쪽 (머리 두는 방향, 이사)", "advice": "열정적으로 자신을 드러내고 사람들과 교류하세요. 밝은 조명 아래에 머물거나 햇빛을 자주 쬐는 것이 최고의 개운법입니다."},
+            "토": {"hanja": "土", "color": "노란색, 베이지색, 브라운", "food": "단맛 나는 음식, 뿌리채소, 곡물", "direction": "거주지의 정중앙, 평야", "advice": "대립을 중재하고 수용하는 여유와 안정감이 필요합니다. 흙을 밟는 맨발 걷기나 명상, 도자기 공예가 행운을 가져옵니다."},
+            "금": {"hanja": "金", "color": "흰색, 은색, 무채색 계열", "food": "매운맛 나는 음식, 견과류, 유제품", "direction": "서쪽 (머리 두는 방향, 이사)", "advice": "맺고 끊음을 명확히 하고 주변을 깔끔하게 정리정돈하세요. 금속 악세서리를 착용하거나 웨이트 트레이닝이 운을 상승시킵니다."},
+            "수": {"hanja": "水", "color": "검은색, 어두운 남색", "food": "짠맛 나는 음식, 해조류, 해산물", "direction": "북쪽 (머리 두는 방향, 이사)", "advice": "유연하게 상황에 대처하고 생각의 깊이를 더하세요. 물가(강, 바다)를 산책하거나 수영, 반신욕이 훌륭한 액땜이 됩니다."}
+        }
+
     def diagnose_salsal(self, shinsal_list: List[str]) -> List[Dict[str, Any]]:
-        """
-        [핵심 알고리즘] 신살 및 흉액 진단기
-        원국 및 대운에서 발견된 흉살에 대해 가감 없는 진단과 업상대체 처방을 JSON 배열로 반환
-        """
         results = []
         for sal in shinsal_list:
             if sal in self.prescription_db:
                 data = self.prescription_db[sal]
-                results.append({
-                    "term": sal,
-                    "hanja": data["hanja"],
-                    "disease_diagnosis": data["disease"],
-                    "prescription_eopsang": data["prescription"],
-                    "final_blessing": data["blessing"]
-                })
+                results.append({"term": sal, "hanja": data["hanja"], "disease_diagnosis": data["disease"], "prescription_eopsang": data["prescription"], "final_blessing": data["blessing"]})
         return results
 
-    def identify_gyeokguk(self, element_scores: Dict[str, int]) -> Dict[str, str]:
-        """
-        [격국/용신 판별기]
-        오행의 세력 분포(element_scores)와 월지 지장간 투간 여부를 기반으로 격국 도출.
-        (현재는 MSA 파이프라인 연결을 위한 템플릿 반환)
-        """
-        # TODO: Phase 2의 통근 점수와 오행 분포를 융합한 복합 분기 로직 가동
-        target_gyeokguk = "식신제살격" 
-        
-        return {
-            "name": target_gyeokguk,
-            "hanja": self.gyeokguk_db[target_gyeokguk]["hanja"],
-            "description": self.gyeokguk_db[target_gyeokguk]["desc"]
-        }
-
-# 마이크로서비스 연동을 위한 인스턴스
 db_dictionary_service = ExpertPrescriptionDB()
-
-if __name__ == "__main__":
-    db = ExpertPrescriptionDB()
-    
-    print("--- 흉액 직언 및 업상대체 처방 시뮬레이션 ---")
-    # 원국 분석 모듈에서 도출된 신살 리스트 (Mock)
-    detected_sals = ["백호대살", "원진살"]
-    
-    diagnoses = db.diagnose_salsal(detected_sals)
-    for diag in diagnoses:
-        print(f"[{diag['term']} ({diag['hanja']})]")
-        print(f" ⚠️ 진단: {diag['disease_diagnosis']}")
-        print(f" 💊 처방: {diag['prescription_eopsang']}")
-        print(f" ✨ 축언: {diag['final_blessing']}\n")
