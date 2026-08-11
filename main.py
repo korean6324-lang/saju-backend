@@ -15,17 +15,29 @@ app.add_middleware(
 
 engine = CoreAstroEngine()
 
-# 🎁 데이터를 프론트엔드가 딱 원하는 'bazi' 방 구조로 포장!
+# 🎁 12지지별 지장간(hidden_stems) 데이터 사전
+JIJANGGAN = {
+    '子': ['壬', '癸'], '丑': ['癸', '辛', '己'], '寅': ['戊', '丙', '甲'], '卯': ['甲', '乙'],
+    '辰': ['乙', '癸', '戊'], '巳': ['戊', '庚', '丙'], '午': ['丙', '己', '丁'], '未': ['丁', '乙', '己'],
+    '申': ['戊', '壬', '庚'], '酉': ['庚', '辛'], '戌': ['辛', '丁', '戊'], '亥': ['戊', '甲', '壬']
+}
+
 def format_bazi_data(engine_result):
     bazi_raw = engine_result.get("bazi", {})
     
     def split_pillar(pillar_str):
         if not pillar_str or len(pillar_str) < 2:
-            return {"stem": "", "branch": ""}
-        return {"stem": pillar_str[0], "branch": pillar_str[1]}
+            return {"stem": "", "branch": "", "hidden_stems": []}
+        
+        branch_char = pillar_str[1]
+        return {
+            "stem": pillar_str[0], 
+            "branch": branch_char,
+            # 🚨 프론트엔드가 그토록 애타게 찾던 지장간 데이터를 배열 형태로 넣어줍니다!
+            "hidden_stems": JIJANGGAN.get(branch_char, [])
+        }
 
     formatted = {
-        # 🚨 프론트엔드가 찾는 "bazi" 방을 만들어 그 안에 넣어줍니다.
         "bazi": {
             "year": split_pillar(bazi_raw.get("year_pillar")),
             "month": split_pillar(bazi_raw.get("month_pillar")),
