@@ -15,7 +15,6 @@ app.add_middleware(
 
 engine = CoreAstroEngine()
 
-# 🎁 12지지별 지장간(hidden_stems) 데이터 사전
 JIJANGGAN = {
     '子': ['壬', '癸'], '丑': ['癸', '辛', '己'], '寅': ['戊', '丙', '甲'], '卯': ['甲', '乙'],
     '辰': ['乙', '癸', '戊'], '巳': ['戊', '庚', '丙'], '午': ['丙', '己', '丁'], '未': ['丁', '乙', '己'],
@@ -33,16 +32,20 @@ def format_bazi_data(engine_result):
         return {
             "stem": pillar_str[0], 
             "branch": branch_char,
-            # 🚨 프론트엔드가 그토록 애타게 찾던 지장간 데이터를 배열 형태로 넣어줍니다!
             "hidden_stems": JIJANGGAN.get(branch_char, [])
         }
+
+    # 시간 데이터를 미리 쪼개어 둡니다.
+    hour_data = split_pillar(bazi_raw.get("hour_pillar"))
 
     formatted = {
         "bazi": {
             "year": split_pillar(bazi_raw.get("year_pillar")),
             "month": split_pillar(bazi_raw.get("month_pillar")),
             "day": split_pillar(bazi_raw.get("day_pillar")),
-            "hour": split_pillar(bazi_raw.get("hour_pillar"))
+            "hour": hour_data,
+            # 🚨 프론트엔드가 'hour' 대신 'time'을 찾을 경우를 대비해 똑같은 데이터를 하나 더 넣어줍니다!
+            "time": hour_data
         },
         "origin_time": engine_result.get("origin_time"),
         "corrected_time": engine_result.get("corrected_time"),
@@ -63,7 +66,6 @@ async def bazi_endpoint(request: Request):
         
         dt_kst = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M")
         
-        # 1. 본인 사주 계산 & 포장
         raw_result = engine.calculate_bazi(
             dt_kst=dt_kst,
             gender=gender,
@@ -73,7 +75,6 @@ async def bazi_endpoint(request: Request):
         )
         final_result = format_bazi_data(raw_result)
         
-        # 2. 파트너 궁합 계산 & 포장
         partner_datetime_str = user_data.get("partner_datetime_str")
         if partner_datetime_str:
             partner_gender = user_data.get("partner_gender")
