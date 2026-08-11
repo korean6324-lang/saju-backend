@@ -34,35 +34,23 @@ def format_bazi_data(engine_result):
             "hidden_stems": JIJANGGAN.get(branch_char, [])
         }
 
-    # 4기둥 파싱
     y = split_pillar(bazi_raw.get("year_pillar"))
     m = split_pillar(bazi_raw.get("month_pillar"))
     d = split_pillar(bazi_raw.get("day_pillar"))
     h = split_pillar(bazi_raw.get("hour_pillar"))
-    empty = {"stem": "", "branch": "", "hidden_stems": []} # 예비용 빈 기둥
-
-    # 세상의 모든 기둥 이름표 총동원 (융단폭격)
-    all_pillars = {
-        "year": y, "month": m, "day": d, "hour": h, "time": h, "minute": h,
-        "yearPillar": y, "monthPillar": m, "dayPillar": d, "hourPillar": h, "timePillar": h,
-        "year_pillar": y, "month_pillar": m, "day_pillar": d, "hour_pillar": h, "time_pillar": h,
-        "daewun": empty, "sewun": empty, "wolun": empty, "iljin": empty,
-        "0": y, "1": m, "2": d, "3": h, "4": empty, "5": empty,
-        "nyeon": y, "wol": m, "il": d, "si": h,
-        "nyeonju": y, "wolju": m, "ilju": d, "siju": h,
-        "myunggung": empty, "taewon": empty
-    }
 
     formatted = {
-        "bazi": all_pillars,
+        "bazi": {
+            "year": y, "month": m, "day": d, "hour": h, "time": h,
+            # 🚨 핵심: 타임라인 데이터는 배열 형태를 기대하므로 빈 배열 [] 을 줍니다.
+            "daewun": [], "sewun": [], "wolun": [], "timeline": []
+        },
+        # 혹시 거실(최상단)에서 찾을 경우를 대비
+        "daewun": [], "sewun": [], "wolun": [], "timeline": [],
         "origin_time": engine_result.get("origin_time"),
         "corrected_time": engine_result.get("corrected_time"),
-        "gender": engine_result.get("gender"),
+        "gender": engine_result.get("gender")
     }
-    
-    # 혹시 프론트엔드가 bazi 방을 안 거치고 바로 찾을 경우를 대비해 최상단에도 복사!
-    formatted.update(all_pillars)
-    
     return formatted
 
 @app.post("/api/bazi")
@@ -109,4 +97,4 @@ async def bazi_endpoint(request: Request):
 
 @app.get("/")
 def read_root():
-    return {"message": "Backend is successfully running with ALL pillars!"}
+    return {"message": "Backend is successfully running!"}
