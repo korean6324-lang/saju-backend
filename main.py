@@ -34,27 +34,29 @@ def format_bazi_data(engine_result):
             "hidden_stems": JIJANGGAN.get(branch_char, [])
         }
 
-    # 4개의 기둥을 예쁘게 분리
     year_data = split_pillar(bazi_raw.get("year_pillar"))
     month_data = split_pillar(bazi_raw.get("month_pillar"))
     day_data = split_pillar(bazi_raw.get("day_pillar"))
     hour_data = split_pillar(bazi_raw.get("hour_pillar"))
-    dummy = {"stem": "", "branch": "", "hidden_stems": []}
+    empty_data = {"stem": "", "branch": "", "hidden_stems": []}
 
     formatted = {
-        # 🚨 프론트엔드가 어떤 이름으로 부르든 다 대답할 수 있도록 모든 이름을 등록해둡니다!
         "bazi": {
-            "year": year_data,
-            "month": month_data,
-            "day": day_data,
-            "hour": hour_data,
-            "time": hour_data,
-            "year_pillar": year_data,
-            "month_pillar": month_data,
-            "day_pillar": day_data,
-            "hour_pillar": hour_data,
-            "time_pillar": hour_data,
-            "daewun": dummy # 혹시 대운(daewun)을 찾을 경우를 대비한 빈 서랍
+            # 1. 기본 영어 단어들
+            "year": year_data, "month": month_data, "day": day_data, "hour": hour_data,
+            "time": hour_data, "date": day_data,
+            
+            # 2. JS에서 가장 흔하게 쓰는 카멜 케이스 (대문자 섞임)
+            "yearPillar": year_data, "monthPillar": month_data, "dayPillar": day_data, 
+            "hourPillar": hour_data, "timePillar": hour_data,
+            
+            # 3. 파이썬 스타일 스네이크 케이스
+            "year_pillar": year_data, "month_pillar": month_data, "day_pillar": day_data, 
+            "hour_pillar": hour_data, "time_pillar": hour_data,
+            
+            # 4. 혹시 모를 대운/세운 등 여분 데이터
+            "daewun": empty_data, "sewun": empty_data,
+            "si": hour_data, "siju": hour_data, "il": day_data, "ilju": day_data
         },
         "origin_time": engine_result.get("origin_time"),
         "corrected_time": engine_result.get("corrected_time"),
