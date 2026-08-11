@@ -20,15 +20,15 @@ async def bazi_endpoint(request: Request):
     try:
         user_data = await request.json()
         
-        # 1. 본인 데이터 변수
         datetime_str = user_data.get("datetime_str")
         gender = user_data.get("gender")
         longitude = user_data.get("longitude", 127.0)
         apply_true_solar = user_data.get("apply_true_solar", True)
         apply_yaja = user_data.get("apply_yaja", True)
         
-        # 2. 본인 사주 계산
         dt_kst = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M")
+        
+        # 엔진 계산 실행
         result = engine.calculate_bazi(
             dt_kst=dt_kst,
             gender=gender,
@@ -37,13 +37,16 @@ async def bazi_endpoint(request: Request):
             apply_yaja=apply_yaja
         )
         
-        # 3. 파트너 궁합 데이터가 있는지 확인하고, 있으면 파트너 사주도 계산!
+        # 🚨 추가된 탐지기: 계산 결과를 Render 로그에 출력합니다!
+        print("🔥 엔진 계산 결과 확인 🔥", flush=True)
+        print(result, flush=True)
+        
+        # 파트너 궁합 처리
         partner_datetime_str = user_data.get("partner_datetime_str")
         if partner_datetime_str:
             partner_gender = user_data.get("partner_gender")
             partner_dt_kst = datetime.strptime(partner_datetime_str, "%Y-%m-%d %H:%M")
             
-            # 파트너 사주 계산 (동일한 환경 변수 적용)
             partner_result = engine.calculate_bazi(
                 dt_kst=partner_dt_kst,
                 gender=partner_gender,
@@ -51,8 +54,6 @@ async def bazi_endpoint(request: Request):
                 apply_true_solar=apply_true_solar,
                 apply_yaja=apply_yaja
             )
-            
-            # 🚨 프론트엔드가 파트너 데이터를 찾을 수 있도록 "partner"라는 방에 넣어줍니다.
             result["partner"] = partner_result
 
         return result
