@@ -34,34 +34,35 @@ def format_bazi_data(engine_result):
             "hidden_stems": JIJANGGAN.get(branch_char, [])
         }
 
-    year_data = split_pillar(bazi_raw.get("year_pillar"))
-    month_data = split_pillar(bazi_raw.get("month_pillar"))
-    day_data = split_pillar(bazi_raw.get("day_pillar"))
-    hour_data = split_pillar(bazi_raw.get("hour_pillar"))
-    empty_data = {"stem": "", "branch": "", "hidden_stems": []}
+    # 4기둥 파싱
+    y = split_pillar(bazi_raw.get("year_pillar"))
+    m = split_pillar(bazi_raw.get("month_pillar"))
+    d = split_pillar(bazi_raw.get("day_pillar"))
+    h = split_pillar(bazi_raw.get("hour_pillar"))
+    empty = {"stem": "", "branch": "", "hidden_stems": []} # 예비용 빈 기둥
+
+    # 세상의 모든 기둥 이름표 총동원 (융단폭격)
+    all_pillars = {
+        "year": y, "month": m, "day": d, "hour": h, "time": h, "minute": h,
+        "yearPillar": y, "monthPillar": m, "dayPillar": d, "hourPillar": h, "timePillar": h,
+        "year_pillar": y, "month_pillar": m, "day_pillar": d, "hour_pillar": h, "time_pillar": h,
+        "daewun": empty, "sewun": empty, "wolun": empty, "iljin": empty,
+        "0": y, "1": m, "2": d, "3": h, "4": empty, "5": empty,
+        "nyeon": y, "wol": m, "il": d, "si": h,
+        "nyeonju": y, "wolju": m, "ilju": d, "siju": h,
+        "myunggung": empty, "taewon": empty
+    }
 
     formatted = {
-        "bazi": {
-            # 1. 기본 영어 단어들
-            "year": year_data, "month": month_data, "day": day_data, "hour": hour_data,
-            "time": hour_data, "date": day_data,
-            
-            # 2. JS에서 가장 흔하게 쓰는 카멜 케이스 (대문자 섞임)
-            "yearPillar": year_data, "monthPillar": month_data, "dayPillar": day_data, 
-            "hourPillar": hour_data, "timePillar": hour_data,
-            
-            # 3. 파이썬 스타일 스네이크 케이스
-            "year_pillar": year_data, "month_pillar": month_data, "day_pillar": day_data, 
-            "hour_pillar": hour_data, "time_pillar": hour_data,
-            
-            # 4. 혹시 모를 대운/세운 등 여분 데이터
-            "daewun": empty_data, "sewun": empty_data,
-            "si": hour_data, "siju": hour_data, "il": day_data, "ilju": day_data
-        },
+        "bazi": all_pillars,
         "origin_time": engine_result.get("origin_time"),
         "corrected_time": engine_result.get("corrected_time"),
-        "gender": engine_result.get("gender")
+        "gender": engine_result.get("gender"),
     }
+    
+    # 혹시 프론트엔드가 bazi 방을 안 거치고 바로 찾을 경우를 대비해 최상단에도 복사!
+    formatted.update(all_pillars)
+    
     return formatted
 
 @app.post("/api/bazi")
@@ -108,4 +109,4 @@ async def bazi_endpoint(request: Request):
 
 @app.get("/")
 def read_root():
-    return {"message": "Backend is successfully running!"}
+    return {"message": "Backend is successfully running with ALL pillars!"}
