@@ -27,7 +27,6 @@ def format_bazi_data(engine_result):
     def split_pillar(pillar_str):
         if not pillar_str or len(pillar_str) < 2:
             return {"stem": "", "branch": "", "hidden_stems": []}
-        
         branch_char = pillar_str[1]
         return {
             "stem": pillar_str[0], 
@@ -35,17 +34,27 @@ def format_bazi_data(engine_result):
             "hidden_stems": JIJANGGAN.get(branch_char, [])
         }
 
-    # 시간 데이터를 미리 쪼개어 둡니다.
+    # 4개의 기둥을 예쁘게 분리
+    year_data = split_pillar(bazi_raw.get("year_pillar"))
+    month_data = split_pillar(bazi_raw.get("month_pillar"))
+    day_data = split_pillar(bazi_raw.get("day_pillar"))
     hour_data = split_pillar(bazi_raw.get("hour_pillar"))
+    dummy = {"stem": "", "branch": "", "hidden_stems": []}
 
     formatted = {
+        # 🚨 프론트엔드가 어떤 이름으로 부르든 다 대답할 수 있도록 모든 이름을 등록해둡니다!
         "bazi": {
-            "year": split_pillar(bazi_raw.get("year_pillar")),
-            "month": split_pillar(bazi_raw.get("month_pillar")),
-            "day": split_pillar(bazi_raw.get("day_pillar")),
+            "year": year_data,
+            "month": month_data,
+            "day": day_data,
             "hour": hour_data,
-            # 🚨 프론트엔드가 'hour' 대신 'time'을 찾을 경우를 대비해 똑같은 데이터를 하나 더 넣어줍니다!
-            "time": hour_data
+            "time": hour_data,
+            "year_pillar": year_data,
+            "month_pillar": month_data,
+            "day_pillar": day_data,
+            "hour_pillar": hour_data,
+            "time_pillar": hour_data,
+            "daewun": dummy # 혹시 대운(daewun)을 찾을 경우를 대비한 빈 서랍
         },
         "origin_time": engine_result.get("origin_time"),
         "corrected_time": engine_result.get("corrected_time"),
