@@ -1,13 +1,10 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
-
-# 명리 엔진 불러오기
 from core_astro import CoreAstroEngine
 
 app = FastAPI()
 
-# CORS 설정
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -21,20 +18,17 @@ engine = CoreAstroEngine()
 @app.post("/api/bazi")
 async def bazi_endpoint(request: Request):
     try:
-        # 1. 프론트엔드에서 보낸 JSON 데이터 받기
         user_data = await request.json()
         
-        # 2. 정확한 Key 이름으로 데이터 뽑아내기
-        datetime_str = user_data.get("datetime_str")         # 예: "1946-12-07 04:30"
-        gender = user_data.get("gender")                     # 예: "M"
-        longitude = user_data.get("longitude", 127.0)        # 예: 127
+        # 1. 본인 데이터 변수
+        datetime_str = user_data.get("datetime_str")
+        gender = user_data.get("gender")
+        longitude = user_data.get("longitude", 127.0)
         apply_true_solar = user_data.get("apply_true_solar", True)
         apply_yaja = user_data.get("apply_yaja", True)
         
-        # 3. 날짜 문자열("YYYY-MM-DD HH:MM")을 파이썬 datetime 객체로 안전하게 변환
+        # 2. 본인 사주 계산
         dt_kst = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M")
-        
-        # 4. 엔진에 데이터 넣고 계산하기!
         result = engine.calculate_bazi(
             dt_kst=dt_kst,
             gender=gender,
@@ -43,11 +37,27 @@ async def bazi_endpoint(request: Request):
             apply_yaja=apply_yaja
         )
         
-        # 5. 계산된 결과를 프론트엔드에 응답
+        # 3. 파트너 궁합 데이터가 있는지 확인하고, 있으면 파트너 사주도 계산!
+        partner_datetime_str = user_data.get("partner_datetime_str")
+        if partner_datetime_str:
+            partner_gender = user_data.get("partner_gender")
+            partner_dt_kst = datetime.strptime(partner_datetime_str, "%Y-%m-%d %H:%M")
+            
+            # 파트너 사주 계산 (동일한 환경 변수 적용)
+            partner_result = engine.calculate_bazi(
+                dt_kst=partner_dt_kst,
+                gender=partner_gender,
+                longitude=longitude,
+                apply_true_solar=apply_true_solar,
+                apply_yaja=apply_yaja
+            )
+            
+            # 🚨 프론트엔드가 파트너 데이터를 찾을 수 있도록 "partner"라는 방에 넣어줍니다.
+            result["partner"] = partner_result
+
         return result
 
     except Exception as e:
-        # 백엔드 로그 확인을 위한 에러 출력
         print("Backend Error:", str(e), flush=True)
         return {"status": "error", "message": str(e)}
 
