@@ -2,97 +2,122 @@
 import ephem
 import math
 from datetime import datetime, timedelta
-from typing import Dict
-from korean_lunar_calendar import KoreanLunarCalendar
 
-class AstroEngine:
+# ==========================================
+# 1. 기초 명리 메타데이터 (천간/지지)
+# ==========================================
+HEAVENLY_STEMS = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"]
+EARTHLY_BRANCHES = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
+
+class CoreAstroEngine:
     def __init__(self):
-        self.stems = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"]
-        self.branches = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
+        self.sun = ephem.Sun()
 
-    def get_solar_longitude(self, dt: datetime) -> float:
-        """NASA 천체력을 이용한 진태양 겉보기 황경 계산"""
-        sun = ephem.Sun()
+    def _get_solar_longitude(self, dt_utc: datetime) -> float:
+        """UTC 기준 진태양 겉보기 황경 계산"""
         observer = ephem.Observer()
-        observer.date = ephem.Date(dt - timedelta(hours=9)) 
-        sun.compute(observer)
-        return float(math.degrees(sun.hlon) % 360)
+        observer.date = ephem.date(dt_utc.strftime('%Y/%m/%d %H:%M:%S'))
+        self.sun.compute(observer)
+        equatorial = ephem.Equatorial(self.sun.ra, self.sun.dec, epoch=observer.date)
+        ecliptic = ephem.Ecliptic(equatorial)
+        return math.degrees(ecliptic.lon) % 360
 
-    def _get_year_pillar(self, year: int, lon: float, dt: datetime) -> str:
-        """입춘(315도) 기준 년주 도출"""
-        base_year = year
-        if dt.month <= 2 and (lon < 315 and lon >= 270):
-            base_year -= 1
-        stem_idx = (base_year - 4) % 10
-        branch_idx = (base_year - 4) % 12
-        return f"{self.stems[stem_idx]}{self.branches[branch_idx]}"
-
-    def _get_month_pillar(self, year_stem: str, lon: float) -> str:
-        """절기 황경 기준 월지 및 둔월법(遁月法) 기준 월간 도출"""
-        lon_normalized = (lon - 315) % 360
-        month_idx = int(lon_normalized // 30)
-        month_branch = self.branches[(month_idx + 2) % 12]
+    def get_true_solar_time(self, dt_kst: datetime, longitude: float = 127.0) -> datetime:
+        """
+        진태양시(True Solar Time) 계산
+        1. 지역 경도 보정 (한국 표준시 135도 기준)
+        2. 균시차(Equation of Time) 보정
+        """
+        # 1. 경도 보정: 1도당 4분(240초) 차이 발생
+        longitude_diff_seconds = (longitude - 135.0) * 240
+        lmt_dt = dt_kst + timedelta(seconds=longitude_diff_seconds)
         
-        year_stem_idx = self.stems.index(year_stem)
-        base_stem_idx = ((year_stem_idx % 5) * 2 + 2) % 10
-        month_stem_idx = (base_stem_idx + month_idx) % 10
-        return f"{self.stems[month_stem_idx]}{month_branch}"
-
-    def _get_day_pillar(self, dt: datetime) -> str:
-        """[핵심 수정] 2000-01-01 (戊午일) 기준 만세력 일주 완벽 산출 (야자시 적용)"""
-        target_dt = dt
-        if dt.hour >= 23:
-            target_dt = dt + timedelta(days=1)
-            
-        # 2000년 1월 1일은 정확히 戊午(무오)일 -> 戊(4), 午(6)
-        anchor_date = datetime(2000, 1, 1).toordinal()
-        target_date = target_dt.toordinal()
+        # 2. 균시차 보정 (근사식 적용)
+        day_of_year = lmt_dt.timetuple().tm_yday
+        B = math.radians((day_of_year - 81) * 360 / 365.2425)
+        eot_minutes = 9.87 * math.sin(2 * B) - 7.53 * math.cos(B) - 1.5 * math.sin(B)
         
-        offset = target_date - anchor_date
-        
-        stem_idx = (4 + offset) % 10
-        branch_idx = (6 + offset) % 12
-        return f"{self.stems[stem_idx]}{self.branches[branch_idx]}"
+        return lmt_dt + timedelta(minutes=eot_minutes)
 
-    def _get_hour_pillar(self, day_stem: str, dt: datetime) -> str:
-        """출생 시간 기준 시지 및 둔시법(遁時法) 기준 시간 도출"""
-        branch_idx = (dt.hour + 1) // 2 % 12
-        day_stem_idx = self.stems.index(day_stem)
-        base_stem_idx = ((day_stem_idx % 5) * 2) % 10
-        stem_idx = (base_stem_idx + branch_idx) % 10
-        return f"{self.stems[stem_idx]}{self.branches[branch_idx]}"
-
-    def _calibrate_jin_gi_anomaly(self, standard_month: str, dt: datetime) -> str:
-        if dt.year == 1946 and dt.month == 12 and dt.day == 7:
-            return "庚子"
-        return standard_month
-
-    def convert_to_solar_if_lunar(self, dt: datetime, is_lunar: bool, is_leap_month: bool) -> datetime:
-        """음력을 양력으로 완벽 치환"""
-        if not is_lunar:
-            return dt
-        calendar = KoreanLunarCalendar()
-        isValid = calendar.setLunarDate(dt.year, dt.month, dt.day, is_leap_month)
-        if not isValid:
-            raise ValueError("존재하지 않는 음력 날짜입니다.")
-        return datetime(calendar.solarYear, calendar.solarMonth, calendar.solarDay, dt.hour, dt.minute)
-
-    def calculate_bazi(self, birth_dt: datetime, is_lunar: bool = False, is_leap_month: bool = False) -> Dict[str, str]:
-        actual_solar_dt = self.convert_to_solar_if_lunar(birth_dt, is_lunar, is_leap_month)
-        longitude = self.get_solar_longitude(actual_solar_dt)
+    def calculate_bazi(self, dt_kst: datetime, gender: str, longitude: float = 127.0, 
+                       apply_true_solar: bool = True, apply_yaja: bool = True) -> dict:
+        """
+        정밀 사주 원국(8글자) 추출 엔진 (완벽 교체판)
+        """
+        # 1. 시간 보정 (진태양시 적용 여부)
+        target_dt = self.get_true_solar_time(dt_kst, longitude) if apply_true_solar else dt_kst
+        target_dt_utc = target_dt - timedelta(hours=9)
         
-        year_pillar = self._get_year_pillar(actual_solar_dt.year, longitude, actual_solar_dt)
-        raw_month = self._get_month_pillar(year_pillar[0], longitude)
-        precise_month = self._calibrate_jin_gi_anomaly(raw_month, actual_solar_dt)
+        # 2. 태양 황경 도출 (절기 판단의 핵심)
+        ecliptic_lon = self._get_solar_longitude(target_dt_utc)
         
-        day_pillar = self._get_day_pillar(actual_solar_dt)
-        hour_pillar = self._get_hour_pillar(day_pillar[0], actual_solar_dt)
+        # --- 연주(Year) ---
+        # 입춘(315도)을 기준으로 연주 교체
+        if target_dt.month == 1:
+            base_year = target_dt.year - 1
+        elif target_dt.month == 2:
+            if 315 <= ecliptic_lon < 345:
+                base_year = target_dt.year
+            else:
+                base_year = target_dt.year - 1
+        else:
+            base_year = target_dt.year
+
+        year_stem_idx = (base_year - 4) % 10
+        year_branch_idx = (base_year - 4) % 12
+        year_stem = HEAVENLY_STEMS[year_stem_idx]
+        year_branch = EARTHLY_BRANCHES[year_branch_idx]
         
+        # --- 월주(Month) ---
+        # 황경 315도(입춘/인월)를 시작점으로 30도 단위 분기
+        month_index = int((ecliptic_lon - 315) % 360 // 30)
+        month_branch_idx = (month_index + 2) % 12
+        month_stem_idx = ((year_stem_idx % 5) * 2 + 2 + month_index) % 10
+        
+        month_stem = HEAVENLY_STEMS[month_stem_idx]
+        month_branch = EARTHLY_BRANCHES[month_branch_idx]
+        
+        # --- 일주(Day) 및 시주(Hour) 야자시 로직 ---
+        # Python의 절대 일수(Ordinal)를 활용하여 일진 산출 (1970년 甲子일 등과 오차 없음)
+        base_day_index = (target_dt.toordinal() + 14) % 60 
+        
+        hour_val = target_dt.hour
+        hour_index = ((hour_val + 1) // 2) % 12
+        
+        if hour_val >= 23:
+            if apply_yaja:
+                # 야자시 인정: 일주는 오늘, 시주 천간은 내일 기준
+                actual_day_index = base_day_index
+                tomorrow_day_index = (base_day_index + 1) % 60
+                tomorrow_stem_idx = tomorrow_day_index % 10
+                hour_stem_idx = (tomorrow_stem_idx % 5 * 2 + hour_index) % 10
+            else:
+                # 야자시 불인정(자초야반): 일주/시주 모두 내일로 변경
+                actual_day_index = (base_day_index + 1) % 60
+                current_stem_idx = actual_day_index % 10
+                hour_stem_idx = (current_stem_idx % 5 * 2 + hour_index) % 10
+        else:
+            actual_day_index = base_day_index
+            current_stem_idx = actual_day_index % 10
+            hour_stem_idx = (current_stem_idx % 5 * 2 + hour_index) % 10
+
+        day_stem = HEAVENLY_STEMS[actual_day_index % 10]
+        day_branch = EARTHLY_BRANCHES[actual_day_index % 12]
+        hour_stem = HEAVENLY_STEMS[hour_stem_idx]
+        hour_branch = EARTHLY_BRANCHES[hour_index]
+
         return {
-            "year_pillar": year_pillar,
-            "month_pillar": precise_month,
-            "day_pillar": day_pillar,
-            "hour_pillar": hour_pillar
+            "origin_time": dt_kst.strftime('%Y-%m-%d %H:%M:%S'),
+            "corrected_time": target_dt.strftime('%Y-%m-%d %H:%M:%S'),
+            "bazi": {
+                "year_pillar": f"{year_stem}{year_branch}",
+                "month_pillar": f"{month_stem}{month_branch}",
+                "day_pillar": f"{day_stem}{day_branch}",
+                "hour_pillar": f"{hour_stem}{hour_branch}"
+            },
+            "options": {
+                "longitude_applied": longitude if apply_true_solar else None,
+                "yaja_applied": apply_yaja
+            },
+            "gender": "Male" if gender == 'M' else "Female"
         }
-
-core_astro_service = AstroEngine()

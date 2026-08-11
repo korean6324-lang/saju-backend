@@ -1,102 +1,109 @@
 # logic_fengshui.py
-from typing import Dict, Any
+
+# ==========================================
+# 1. 구성기학(Nine-Star Ki) 메타데이터
+# ==========================================
+NINE_STARS = {
+    1: {"name": "일백수성(一白水星)", "element": "수(水)", "trigram": "감(坎)", "group": "동사택"},
+    2: {"name": "이흑토성(二黑土星)", "element": "토(土)", "trigram": "곤(坤)", "group": "서사택"},
+    3: {"name": "삼벽목성(三碧木星)", "element": "목(木)", "trigram": "진(震)", "group": "동사택"},
+    4: {"name": "사록목성(四綠木星)", "element": "목(木)", "trigram": "손(巽)", "group": "동사택"},
+    5: {"name": "오황토성(五黃土星)", "element": "토(土)", "trigram": "중궁(中)", "group": "중앙"},
+    6: {"name": "육백금성(六白金星)", "element": "금(金)", "trigram": "건(乾)", "group": "서사택"},
+    7: {"name": "칠적금성(七赤金星)", "element": "금(金)", "trigram": "태(兌)", "group": "서사택"},
+    8: {"name": "팔백토성(八白土星)", "element": "토(土)", "trigram": "간(艮)", "group": "서사택"},
+    9: {"name": "구자화성(九紫火星)", "element": "화(火)", "trigram": "이(離)", "group": "동사택"}
+}
+
+# ==========================================
+# 2. 팔사택(Eight Mansions) 8대 길흉 방위표
+# 길방: 생기(최상), 천을(건강/치유), 연년(조화/재물), 복위(안정)
+# 흉방: 화해(가벼운 다툼), 육살(구설수), 오귀(화재/사고), 절명(최악/단절)
+# ==========================================
+EIGHT_MANSIONS_DIRECTIONS = {
+    # 1. 감궁 (동사택)
+    1: {"생기": "동남", "천을": "동", "연년": "남", "복위": "북", "화해": "서", "육살": "북서", "오귀": "북동", "절명": "남서"},
+    # 2. 곤궁 (서사택)
+    2: {"생기": "북동", "천을": "서", "연년": "북서", "복위": "남서", "화해": "동", "육살": "남", "오귀": "동남", "절명": "북"},
+    # 3. 진궁 (동사택)
+    3: {"생기": "남", "천을": "북", "연년": "동남", "복위": "동", "화해": "남서", "육살": "북동", "오귀": "북서", "절명": "서"},
+    # 4. 손궁 (동사택)
+    4: {"생기": "북", "천을": "남", "연년": "동", "복위": "동남", "화해": "북서", "육살": "서", "오귀": "남서", "절명": "북동"},
+    # 6. 건궁 (서사택)
+    6: {"생기": "서", "천을": "북동", "연년": "남서", "복위": "북서", "화해": "동남", "육살": "북", "오귀": "동", "절명": "남"},
+    # 7. 태궁 (서사택)
+    7: {"생기": "북서", "천을": "남서", "연년": "북동", "복위": "서", "화해": "북", "육살": "동남", "오귀": "남", "절명": "동"},
+    # 8. 간궁 (서사택)
+    8: {"생기": "남서", "천을": "북서", "연년": "서", "복위": "북동", "화해": "남", "육살": "동", "오귀": "북", "절명": "동남"},
+    # 9. 이궁 (동사택)
+    9: {"생기": "동", "천을": "동남", "연년": "북", "복위": "남", "화해": "북동", "육살": "남서", "오귀": "서", "절명": "북서"}
+}
 
 class FengShuiEngine:
     def __init__(self):
-        # 1백수성 ~ 9자화성의 본명궁(本命宮) 괘상 매핑
-        self.gua_mapping = {
-            1: "감(坎)", 2: "곤(坤)", 3: "진(震)", 4: "손(巽)",
-            6: "건(乾)", 7: "태(兌)", 8: "간(艮)", 9: "이(離)"
-            # 5(중궁)는 남자는 2(곤), 여자는 8(간)로 치환됨
-        }
-        
-        # 동사택 / 서사택 분류
-        self.east_west_groups = {
-            1: "동사택(東四宅)", 3: "동사택(東四宅)", 4: "동사택(東四宅)", 9: "동사택(東四宅)",
-            2: "서사택(西四宅)", 6: "서사택(西四宅)", 7: "서사택(西四宅)", 8: "서사택(西四宅)"
-        }
-        
-        # 8대 길흉성(八大吉凶星) 크로스매칭 DB (팔택명경 기준)
-        # 딕셔너리 구조: {본명궁: {상대방_또는_방위의_본명궁: "길흉결과"}}
-        self.eight_mansions_db = {
-            1: {1:"복위(吉)", 2:"절명(凶)", 3:"천을(吉)", 4:"생기(吉)", 6:"육살(凶)", 7:"화해(凶)", 8:"오귀(凶)", 9:"연년(吉)"},
-            2: {1:"절명(凶)", 2:"복위(吉)", 3:"화해(凶)", 4:"오귀(凶)", 6:"연년(吉)", 7:"천을(吉)", 8:"생기(吉)", 9:"육살(凶)"},
-            3: {1:"천을(吉)", 2:"화해(凶)", 3:"복위(吉)", 4:"연년(吉)", 6:"오귀(凶)", 7:"절명(凶)", 8:"육살(凶)", 9:"생기(吉)"},
-            4: {1:"생기(吉)", 2:"오귀(凶)", 3:"연년(吉)", 4:"복위(吉)", 6:"화해(凶)", 7:"육살(凶)", 8:"절명(凶)", 9:"천을(吉)"},
-            6: {1:"육살(凶)", 2:"연년(吉)", 3:"오귀(凶)", 4:"화해(凶)", 6:"복위(吉)", 7:"생기(吉)", 8:"천을(吉)", 9:"절명(凶)"},
-            7: {1:"화해(凶)", 2:"천을(吉)", 3:"절명(凶)", 4:"육살(凶)", 6:"생기(吉)", 7:"복위(吉)", 8:"연년(吉)", 9:"오귀(凶)"},
-            8: {1:"오귀(凶)", 2:"생기(吉)", 3:"육살(凶)", 4:"절명(凶)", 6:"천을(吉)", 7:"연년(吉)", 8:"복위(吉)", 9:"화해(凶)"},
-            9: {1:"연년(吉)", 2:"육살(凶)", 3:"생기(吉)", 4:"천을(吉)", 6:"절명(凶)", 7:"오귀(凶)", 8:"화해(凶)", 9:"복위(吉)"}
-        }
+        pass
 
-    def calculate_bonmyeonggung(self, birth_year: int, gender: str) -> Dict[str, Any]:
+    def calculate_honmyeong_gung(self, base_year: int, gender: str) -> dict:
         """
-        [핵심 알고리즘] 삼원갑자 본명궁(本命宮) 도출
-        입춘(立春)을 지난 출생년도를 기준으로 남녀의 본명궁 괘(Gua)를 계산합니다.
+        태어난 연도(입춘 기준)와 성별로 본명궁(1~9) 계산
         """
-        # 년도의 각 자릿수 합산 후 단일 숫자로 축소
-        year_sum = sum(int(digit) for digit in str(birth_year))
-        while year_sum > 9:
-            year_sum = sum(int(digit) for digit in str(year_sum))
+        # 1. 연도의 각 자리수를 더함 (예: 1990 -> 1+9+9+0 = 19)
+        digit_sum = sum(int(digit) for digit in str(base_year))
+        
+        # 2. 한 자리가 될 때까지 다시 더함 (예: 19 -> 1+9 = 10 -> 1+0 = 1)
+        while digit_sum > 9:
+            digit_sum = sum(int(digit) for digit in str(digit_sum))
             
-        # 남녀에 따른 본명궁 수학적 도출 공식
-        if gender == "M":
-            gua_num = 11 - year_sum
-            if gua_num > 9: gua_num -= 9
-            if gua_num == 5: gua_num = 2  # 남성 5황토성은 2(곤)으로 치환
-        else: # "F"
-            gua_num = 4 + year_sum
-            if gua_num > 9: gua_num -= 9
-            if gua_num == 5: gua_num = 8  # 여성 5황토성은 8(간)으로 치환
-            
-        gua_name = self.gua_mapping[gua_num]
-        house_group = self.east_west_groups[gua_num]
+        # 3. 남녀에 따른 본명궁 공식 적용
+        if gender == 'M':
+            # 남성: 11 - digit_sum
+            honmyeong_num = 11 - digit_sum
+            if honmyeong_num > 9:
+                honmyeong_num -= 9
+            # 기궁법(특수규칙): 남성 5(오황토성)는 2(이흑토성/곤궁)으로 변환
+            if honmyeong_num == 5:
+                honmyeong_num = 2
+        else: # 'F'
+            # 여성: digit_sum + 4
+            honmyeong_num = digit_sum + 4
+            if honmyeong_num > 9:
+                honmyeong_num -= 9
+            # 기궁법(특수규칙): 여성 5(오황토성)는 8(팔백토성/간궁)으로 변환
+            if honmyeong_num == 5:
+                honmyeong_num = 8
+                
+        star_info = NINE_STARS[honmyeong_num]
         
         return {
-            "gua_number": gua_num,
-            "gua_name": gua_name,
-            "house_group": house_group
+            "number": honmyeong_num,
+            "name": star_info["name"],
+            "element": star_info["element"],
+            "trigram": star_info["trigram"],
+            "group": star_info["group"]
         }
 
-    def evaluate_match_and_direction(self, person_a_gua: int, target_gua: int) -> Dict[str, str]:
+    def get_auspicious_directions(self, honmyeong_num: int) -> dict:
         """
-        구궁(九宮) 크로스매칭을 통한 8대 길흉 궁합 및 방위 연산
-        - 사람 간의 궁합 (예: 1백수성 남성과 4록목성 여성의 파트너십)
-        - 특정 방위의 길흉 (예: 1백수성인 사람이 이사갈 집의 좌향이 2(곤)방향일 때)
+        본명궁 번호를 기반으로 8대 길흉 방위 반환
         """
-        result = self.eight_mansions_db.get(person_a_gua, {}).get(target_gua, "알 수 없음")
+        # 특수규칙 처리 (5는 이미 위에서 2나 8로 치환되어 들어옴을 가정하지만, 혹시 모를 방어 코드)
+        if honmyeong_num == 5:
+            return {} 
+            
+        directions = EIGHT_MANSIONS_DIRECTIONS.get(honmyeong_num, {})
         
-        meaning = ""
-        if "생기" in result: meaning = "생기(生氣): 활력과 재물이 솟아나는 최고 길조. 비즈니스 파트너나 대문 방향으로 최적."
-        elif "천을" in result: meaning = "천을(天乙): 귀인의 도움을 받아 질병이 치유되고 안정을 찾는 심신 평안의 길조."
-        elif "절명" in result: meaning = "절명(絶命): 기운이 단절되어 파재와 질병이 우려되는 대흉. 수면 방향이나 계약 파트너로 피해야 함."
-        # 추가적인 길흉 해석은 딕셔너리로 분리하여 메타데이터화 가능
-        else: meaning = f"{result} 방위/궁합에 해당합니다."
-        
+        # 길방과 흉방으로 분류하여 정리
         return {
-            "result": result,
-            "interpretation": meaning
+            "good": {
+                "생기(최상/활력)": directions.get("생기"),
+                "천을(건강/치유)": directions.get("천을"),
+                "연년(조화/재물)": directions.get("연년"),
+                "복위(안정/휴식)": directions.get("복위")
+            },
+            "bad": {
+                "화해(구설/다툼)": directions.get("화해"),
+                "육살(관재/실패)": directions.get("육살"),
+                "오귀(사고/화재)": directions.get("오귀"),
+                "절명(최악/단절)": directions.get("절명")
+            }
         }
-
-# 마이크로서비스 연동을 위한 인스턴스
-logic_fengshui_service = FengShuiEngine()
-
-if __name__ == "__main__":
-    engine = FengShuiEngine()
-    
-    # 1. 본명궁 도출 테스트 (1985년생 남성)
-    print("--- 본명궁 및 사택 연산 ---")
-    p1 = engine.calculate_bonmyeonggung(1985, "M") 
-    print(f"1985년생 남성: {p1}") 
-    # 예상 결과: 6(건), 서사택
-    
-    # 2. 본명궁 도출 테스트 (1985년생 여성)
-    p2 = engine.calculate_bonmyeonggung(1985, "F")
-    print(f"1985년생 여성: {p2}") 
-    # 예상 결과: 9(이), 동사택
-    
-    # 3. 8대 길흉 크로스매칭 테스트 (남성 6(건) vs 여성 9(이))
-    print("\n--- 8대 길흉 궁합 분석 ---")
-    match = engine.evaluate_match_and_direction(p1["gua_number"], p2["gua_number"])
-    print(f"건(乾)과 이(離)의 만남: {match}")
-    # 예상 결과: 절명(凶)
