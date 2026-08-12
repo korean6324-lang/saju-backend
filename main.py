@@ -39,7 +39,7 @@ unse = UnseEngine()
 yong = YongshinEngine()
 clas = ClassicalEngine() 
 
-# 🚨 [추가] 30 납음오행 심층 해석 DB
+# 🚨 30 납음오행 심층 해석 DB
 NAPEUM_RICH_DESC = {
     "해중금": "바다 깊은 곳에 잠긴 보석. 겉으로 드러나지 않는 깊은 내공과 무한한 잠재력을 지니고 있습니다.",
     "노중화": "화로 속에서 타오르는 불꽃. 따뜻하고 보호받는 환경에서 은근한 끈기와 지성을 발휘합니다.",
@@ -90,9 +90,6 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
 
     day_master = d_stem
 
-    # ----------------------------------------------------
-    # 1. Bazi & Mechanics
-    # ----------------------------------------------------
     def get_pillar(stem, branch):
         return {
             "stem": stem, "branch": branch,
@@ -116,16 +113,10 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
     elements_dist = mech.get_five_elements_distribution([y_stem, m_stem, d_stem, h_stem], [y_branch, m_branch, d_branch, h_branch])
     tonggeun = mech.check_tonggeun(day_master, {"year": y_branch, "month": m_branch, "day": d_branch, "hour": h_branch})
 
-    # ----------------------------------------------------
-    # 2. Yongshin
-    # ----------------------------------------------------
     geokguk = yong.determine_geokguk(bazi, hidden_stems)
     strength = yong.determine_strength(bazi)
     yongshin_data = yong.determine_yongshin(bazi, strength)
 
-    # ----------------------------------------------------
-    # 3. Practical
-    # ----------------------------------------------------
     career = prac.analyze_career(geokguk, yongshin_data)
     health_raw = prac.analyze_health(elements_dist)
     
@@ -139,18 +130,12 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
                 "desc": h["advice"]
             })
 
-    # ----------------------------------------------------
-    # 4. Dynamics
-    # ----------------------------------------------------
     special_stars = dyn.scan_special_stars(
         {"year": y_stem, "month": m_stem, "day": d_stem, "hour": h_stem},
         {"year": y_branch, "month": m_branch, "day": d_branch, "hour": h_branch}
     )
     disasters = dyn.scan_disasters([y_branch, m_branch, d_branch, h_branch])
 
-    # ----------------------------------------------------
-    # 5. Timeline
-    # ----------------------------------------------------
     daewun_raw = mech.get_daewun_sequence(gender, y_stem, m_stem, m_branch, int(daewun_num), 10)
     sewun_raw = mech.get_sewun_sequence(datetime.now().year - 4, 10)
 
@@ -162,9 +147,6 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
         sw["stem_tg"] = mech.get_ten_god(day_master, sw["stem"])
         sw["branch_tg"] = mech.get_ten_god(day_master, sw["branch"])
 
-    # ----------------------------------------------------
-    # 6. Unse
-    # ----------------------------------------------------
     now_astro = astro.calculate_bazi(datetime.now(), gender)
     now_y, now_y_b = now_astro["bazi"]["year_pillar"][0], now_astro["bazi"]["year_pillar"][1]
     now_m, now_m_b = now_astro["bazi"]["month_pillar"][0], now_astro["bazi"]["month_pillar"][1]
@@ -185,9 +167,6 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
         }
     }
 
-    # ----------------------------------------------------
-    # 7. Gunghap
-    # ----------------------------------------------------
     gunghap_data = None
     if partner_dt and partner_gender:
         my_year = dt_kst.year
@@ -207,38 +186,37 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
             "inner": ghap.get_inner_compatibility(d_branch, p_day_branch)
         }
 
-    # ----------------------------------------------------
-    # 8. Classical
-    # ----------------------------------------------------
     classical_stars = clas.get_four_pillars_stars({
         "year": y_branch, "month": m_branch, "day": d_branch, "hour": h_branch
     })
     classical_reading = clas.generate_classical_reading(bazi, disasters, yongshin_data)
 
     # ----------------------------------------------------
-    # 9. Metadata
+    # 🚨 9. Metadata (지장간 등 모든 툴팁 누락 완벽 해결)
     # ----------------------------------------------------
     metadata = {}
-    terms_to_fetch = {y_stem, y_branch, m_stem, m_branch, d_stem, d_branch, h_stem, h_branch}
+    
+    # 사주 원국, 지장간, 대운, 세운 어디서든 툴팁이 100% 작동하도록
+    # 10천간, 12지지, 10십성, 공망을 모조리 수집합니다.
+    terms_to_fetch = set([
+        "甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸",
+        "子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥",
+        "비견", "겁재", "식신", "상관", "편재", "정재", "편관", "정관", "편인", "정인", "공망"
+    ])
+    
+    # 추가적으로 연산 과정에서 나온 특이 케이스(기타 용어) 방어
     for p in bazi.values():
         terms_to_fetch.add(p['stem_tg'])
         terms_to_fetch.add(p['branch_tg'])
-    for g in gongmang:
-        terms_to_fetch.add(g)
 
     for term in terms_to_fetch:
         if term and term != "일간" and term != "-":
             metadata[term] = mech.get_metadata(term)
-    metadata["공망"] = mech.get_metadata("공망")
 
-    # ----------------------------------------------------
-    # 🚨 [추가] 납음오행 심층 텍스트 생성 로직
-    # ----------------------------------------------------
     def get_napeum_desc(pillar_type, napeum_full):
         if not napeum_full or napeum_full == "-" or napeum_full == "알수없음":
             return "납음오행 정보가 없습니다."
-        
-        core_name = napeum_full[:3] # '사중토', '해중금' 등 앞 3글자 추출
+        core_name = napeum_full[:3]
         base_desc = NAPEUM_RICH_DESC.get(core_name, "신비로운 파동을 지닌 기운입니다.")
         
         if pillar_type == "year":
@@ -250,9 +228,6 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
         else:
             return f"{base_desc} 말년과 자식궁, 그리고 남모르는 비밀스러운 영혼의 파동입니다."
 
-    # ----------------------------------------------------
-    # 🌟 10. 마스터 JSON 반환
-    # ----------------------------------------------------
     return {
         "origin_time": astro_res["origin_time"],
         "corrected_time": astro_res["corrected_time"],
@@ -363,4 +338,4 @@ async def bazi_endpoint(request: Request):
 
 @app.get("/")
 def read_root():
-    return {"message": "마스터 엔진 가동 중 (납음오행 심층해석 적용 완료)"}
+    return {"message": "마스터 엔진 가동 중 (지장간 툴팁 누락 완벽 해결)"}
