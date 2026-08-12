@@ -38,6 +38,7 @@ class PracticalEngine:
                 data = self.health_map[element]
                 health_warnings.append({
                     "element": element,
+                    "status_code": "과다", # 🚨 프론트엔드가 텍스트 대신 이 코드로 조건 판별
                     "status": "과다 (기운이 너무 강해 병이 됨)",
                     "organ": data["organ"],
                     "symptom": data["excess"],
@@ -47,6 +48,7 @@ class PracticalEngine:
                 data = self.health_map[element]
                 health_warnings.append({
                     "element": element,
+                    "status_code": "고립(無)", # 🚨 프론트엔드가 텍스트 대신 이 코드로 조건 판별
                     "status": "고립/태약 (기운이 없어 병이 됨)",
                     "organ": data["organ"],
                     "symptom": data["weak"],
@@ -57,6 +59,7 @@ class PracticalEngine:
         if not health_warnings:
             health_warnings.append({
                 "element": "종합",
+                "status_code": "양호", # 🚨 안전 플래그
                 "status": "오행 균형 양호",
                 "organ": "전신",
                 "symptom": "특별한 선천적 취약점 없음",
@@ -68,17 +71,16 @@ class PracticalEngine:
     def analyze_career(self, geokguk_data: dict, yongshin_data: dict) -> dict:
         """
         [현대적 직업/적성 큐레이션]
-        Phase 11에서 구한 '격국(사회적 그릇)'을 바탕으로 최적의 직업군을 추천하고,
-        '용신'을 바탕으로 일하는 방식(환경)을 조언합니다.
         """
-        # 격국 이름에서 십신 추출 (예: "정관격" -> "정관")
-        core_tg = geokguk_data["name"][:2]
+        # 🚨 [수정 완료] 하드코딩된 [:2] 슬라이싱 방지, name_clean을 기반으로 안전하게 십신명 치환
+        name_clean = geokguk_data.get("name_clean", geokguk_data.get("name", ""))
+        core_tg = name_clean.replace("격", "").replace("월건록", "비견").replace("양인", "겁재").replace("월걸록", "겁재")
         
-        # 격국이 매핑 DB에 없으면(예: 건록격, 양인격 등) 비견/겁재로 치환
-        if core_tg == "건록": core_tg = "비견"
-        elif core_tg == "양인" or core_tg == "월걸": core_tg = "겁재"
-        
-        career_info = self.career_map.get(core_tg, self.career_map["식신"]) # 기본값 식신
+        # 만약 치환 후에도 십신 10개 중에 없다면 기본값 식신으로 보호
+        if core_tg not in self.career_map:
+            core_tg = "식신"
+            
+        career_info = self.career_map[core_tg]
         
         # 용신(수호신)에 따른 근무 환경 조언
         ys_str = yongshin_data.get("yongshin", "")

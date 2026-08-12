@@ -82,16 +82,6 @@ FAQ_DB = [
     {"q": "마스터 엔진의 파트너 궁합은 일반 궁합과 무엇이 다른가요?", "a": "본 시스템의 궁합은 단순한 오행의 개수나 띠(연지)만 맞추는 가벼운 궁합이 아닙니다. 다음 3가지 핵심 엔진을 크로스체크하여 인연의 밑바닥까지 팩트폭행합니다.\n\n1. 일지(日支) 속궁합: 부부의 침실이자 내면을 상징하는 일지의 글자를 대조하여 육합, 삼합의 완벽한 융합부터 원진, 귀문, 충의 애증과 파국까지 적나라하게 분석합니다.\n2. 구궁 팔괘: 남녀의 타고난 본명성을 바탕으로, 부부 사이의 권력 구조(남극녀, 여극남 등)와 발현 타이밍을 도출합니다.\n3. 삼원갑자: 두 영혼이 속한 우주적 시대 배경을 대조하여 영혼의 파장이 근본적으로 닿아 있는지를 판별합니다."}
 ]
 
-# 🚨 [신규 추가] 프론트엔드가 괄호 자를 필요 없도록 명칭과 한자를 예쁘게 쪼개주는 유틸 함수
-def extract_name_hanja(raw_str):
-    if not raw_str or raw_str == "-": return "-", "-"
-    if "(" in raw_str and ")" in raw_str:
-        parts = raw_str.split("(")
-        name = parts[0].strip()
-        hanja = parts[1].replace(")", "").strip()
-        return name, hanja
-    return raw_str, ""
-
 def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=None, apply_trad=False, lunar_m=None, unknown_time=False):
     bazi_raw = astro_res.get("bazi", {})
     
@@ -132,10 +122,9 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=No
     strength = yong.determine_strength(bazi)
     yongshin_data = yong.determine_yongshin(bazi, strength)
 
-    # 🚨 [수정 완료] 격국의 이름과 한자 세분화
-    g_name, g_hanja = extract_name_hanja(geokguk.get("name", ""))
-    geokguk["name_clean"] = g_name
-    geokguk["hanja_clean"] = g_hanja
+    # 🚨 [수정 완료] 엔진(logic_yongshin)이 이미 분리해준 name과 hanja를 프론트 규격에 맞춰 넘김
+    geokguk["name_clean"] = geokguk.get("name", "")
+    geokguk["hanja_clean"] = geokguk.get("hanja", "")
 
     career = prac.analyze_career(geokguk, yongshin_data)
     health_raw = prac.analyze_health(elements_dist)
@@ -143,33 +132,20 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=No
     elements_imbalance = []
     for h in health_raw:
         if h["element"] != "종합":
-            # 🚨 [수정 완료] split(" ")[0] 의존성 제거. 키워드로 안전하게 분기
-            s_text = h["status"]
-            if "과다" in s_text: s_type = "과다"
-            elif "고립" in s_text or "無" in s_text: s_type = "고립(無)"
-            else: s_type = "양호"
-
+            # 🚨 [수정 완료] 텍스트 쪼개기(split) 완전 철거. 엔진이 내려준 status_code를 그대로 사용
             elements_imbalance.append({
                 "element": h["element"], 
-                "type": s_type, 
-                "original_status": s_text,
+                "type": h.get("status_code", "양호"), 
+                "original_status": h["status"],
                 "count": elements_dist.get(h["element"], 0), 
                 "desc": h["advice"]
             })
 
+    # 🚨 [수정 완료] 신살 및 흉액의 엔진 결과값을 수정 없이 패스(Pass)
+    # logic_dynamics.py 엔진에서 이미 name_clean, hanja_clean을 완벽하게 담아서 주므로
+    # main.py에서 불필요하게 다시 자르는 방해 로직을 전면 삭제했습니다.
     special_stars = dyn.scan_special_stars({"year": y_stem, "month": m_stem, "day": d_stem, "hour": h_stem}, {"year": y_branch, "month": m_branch, "day": d_branch, "hour": h_branch})
     disasters = dyn.scan_disasters(valid_branches)
-
-    # 🚨 [수정 완료] 신살 및 흉액의 이름과 한자 세분화 처리
-    for star in special_stars:
-        n_clean, h_clean = extract_name_hanja(star.get("name", ""))
-        star["name_clean"] = n_clean
-        star["hanja_clean"] = h_clean
-        
-    for dis in disasters:
-        n_clean, h_clean = extract_name_hanja(dis.get("name", ""))
-        dis["name_clean"] = n_clean
-        dis["hanja_clean"] = h_clean
 
     daewun_raw = mech.get_daewun_sequence(gender, y_stem, m_stem, m_branch, int(daewun_num), 10)
     sewun_raw = mech.get_sewun_sequence(datetime.now().year - 4, 10)
@@ -210,7 +186,6 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=No
         my_star = ghap.get_bonmyeongseong(my_year, gender)
         p_star = ghap.get_bonmyeongseong(p_year, p_gender)
         
-        # 언어팩 파라미터 삭제
         gunghap_data = {
             "my_samwon": ghap.get_samwon_gapja(my_year), "my_star": my_star,
             "partner_samwon": ghap.get_samwon_gapja(p_year), "partner_star": p_star,
@@ -230,7 +205,6 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=No
         terms_to_fetch.add(p['stem_tg'])
         terms_to_fetch.add(p['branch_tg'])
         
-    # 다국어 GLOBAL_TERM_DB 덮어쓰기 로직 삭제 (순수 원본 메타데이터만 복사)
     for term in terms_to_fetch:
         if term and term != "일간" and term != "-": 
             original_meta = mech.get_metadata(term)
@@ -242,7 +216,6 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=No
                 meta = {"hanja": "", "meaning": ""}
             metadata[term] = meta
 
-    # 🚨 [수정 완료] 납음오행 슬라이싱 에러 원천 차단 (괄호 기준으로 명확히 분리)
     def get_napeum_desc(pillar_type, napeum_full):
         if not napeum_full or napeum_full == "-" or napeum_full == "알수없음": return "납음오행 정보가 없습니다."
         
@@ -286,13 +259,11 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=No
 # ==========================================
 @app.get("/api/dictionary")
 def dictionary_endpoint(q: str = ""):
-    # 언어 파라미터 삭제
     results = dict_db.search(q)
     return results
 
 @app.get("/api/faq")
 def faq_endpoint():
-    # 단일화된 한국어 FAQ 리턴
     return FAQ_DB
 
 @app.post("/api/bazi")
