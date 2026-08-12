@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 
 # ==========================================
-# 🌟 모든 엔진 총동원 (9개의 심장)
+# 🌟 모든 엔진 총동원 (10개의 심장)
 # ==========================================
 from core_astro import CoreAstroEngine
 from core_mechanics import MechanicsEngine
@@ -14,6 +14,7 @@ from logic_gunghap import GunghapEngine
 from logic_practical import PracticalEngine
 from logic_unse import UnseEngine
 from logic_yongshin import YongshinEngine
+from logic_classical import ClassicalEngine # 🚨 마지막 10번째 심장 추가!
 
 app = FastAPI()
 
@@ -35,6 +36,7 @@ ghap = GunghapEngine()
 prac = PracticalEngine()
 unse = UnseEngine()
 yong = YongshinEngine()
+clas = ClassicalEngine() # 🚨 인스턴스 생성
 
 def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None, partner_gender=None):
     bazi_raw = astro_res.get("bazi", {})
@@ -44,7 +46,7 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
     d_stem, d_branch = bazi_raw["day_pillar"][0], bazi_raw["day_pillar"][1]
     h_stem, h_branch = bazi_raw["hour_pillar"][0], bazi_raw["hour_pillar"][1]
     
-    day_master = d_stem # 일간 (나 자신)
+    day_master = d_stem
 
     # ----------------------------------------------------
     # 1. Bazi & Mechanics (기초 명리 및 지장간/오행)
@@ -85,7 +87,6 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
     career = prac.analyze_career(geokguk, yongshin_data)
     health_raw = prac.analyze_health(elements_dist)
     
-    # 프론트엔드가 요구하는 elements_imbalance 포맷 추출
     elements_imbalance = []
     for h in health_raw:
         if h["element"] != "종합":
@@ -106,7 +107,7 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
     disasters = dyn.scan_disasters([y_branch, m_branch, d_branch, h_branch])
 
     # ----------------------------------------------------
-    # 5. Timeline (대운 및 세운) + 십신 추가 (프론트엔드 에러 방지)
+    # 5. Timeline (대운 및 세운)
     # ----------------------------------------------------
     daewun_raw = mech.get_daewun_sequence(gender, y_stem, m_stem, m_branch, int(daewun_num), 10)
     sewun_raw = mech.get_sewun_sequence(datetime.now().year, 10)
@@ -120,9 +121,9 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
         sw["branch_tg"] = mech.get_ten_god(day_master, sw["branch"])
 
     # ----------------------------------------------------
-    # 6. Unse (올해/이달/오늘 운세) - 현재 시간 기준 원국 도출
+    # 6. Unse (올해/이달/오늘 운세)
     # ----------------------------------------------------
-    now_astro = astro.calculate_bazi(datetime.now(), gender) # 현재 시간의 사주 추출
+    now_astro = astro.calculate_bazi(datetime.now(), gender)
     now_y, now_y_b = now_astro["bazi"]["year_pillar"][0], now_astro["bazi"]["year_pillar"][1]
     now_m, now_m_b = now_astro["bazi"]["month_pillar"][0], now_astro["bazi"]["month_pillar"][1]
     now_d, now_d_b = now_astro["bazi"]["day_pillar"][0], now_astro["bazi"]["day_pillar"][1]
@@ -143,14 +144,12 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
     }
 
     # ----------------------------------------------------
-    # 7. Gunghap (궁합 분석 - 파트너 존재 시)
+    # 7. Gunghap (궁합 분석)
     # ----------------------------------------------------
     gunghap_data = None
     if partner_dt and partner_gender:
         my_year = dt_kst.year
         p_year = partner_dt.year
-        
-        # 파트너 일지 추출을 위해 astro_engine 가동
         p_astro = astro.calculate_bazi(partner_dt, partner_gender)
         p_day_branch = p_astro["bazi"]["day_pillar"][1]
 
@@ -167,7 +166,15 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
         }
 
     # ----------------------------------------------------
-    # 8. Metadata (프론트엔드 한자 툴팁) 자동 수집
+    # 🚨 8. Classical (잃어버렸던 고법 간명지 텍스트 복구!)
+    # ----------------------------------------------------
+    classical_stars = clas.get_four_pillars_stars({
+        "year": y_branch, "month": m_branch, "day": d_branch, "hour": h_branch
+    })
+    classical_reading = clas.generate_classical_reading(bazi, disasters, yongshin_data)
+
+    # ----------------------------------------------------
+    # 9. Metadata (사전 툴팁)
     # ----------------------------------------------------
     metadata = {}
     terms_to_fetch = {y_stem, y_branch, m_stem, m_branch, d_stem, d_branch, h_stem, h_branch}
@@ -183,7 +190,7 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
     metadata["공망"] = mech.get_metadata("공망")
 
     # ----------------------------------------------------
-    # 🌟 9. 프론트엔드 완벽 호환 마스터 JSON 반환
+    # 🌟 10. 마스터 JSON 반환
     # ----------------------------------------------------
     return {
         "origin_time": astro_res["origin_time"],
@@ -222,7 +229,11 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
             "daewun": daewun_raw,
             "sewun": sewun_raw
         },
-        "gunghap": gunghap_data
+        "gunghap": gunghap_data,
+        "classical": {
+            "stars": classical_stars,
+            "reading": classical_reading
+        }
     }
 
 
@@ -247,17 +258,14 @@ async def bazi_endpoint(request: Request):
         
         dt_kst = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M")
         
-        # 본인 8글자 뼈대 연산
         astro_res = astro.calculate_bazi(dt_kst, gender, longitude, apply_true_solar, apply_yaja)
         
-        # 파트너 데이터 유무 확인
         partner_dt = None
         partner_gender = user_data.get("partner_gender")
         p_dt_str = user_data.get("partner_datetime_str")
         if p_dt_str:
             partner_dt = datetime.strptime(p_dt_str, "%Y-%m-%d %H:%M")
 
-        # 거대한 9개 엔진 통합 데이터 생성!
         final_result = build_full_response(dt_kst, astro_res, gender, daewun_num, partner_dt, partner_gender)
 
         return final_result
@@ -268,4 +276,4 @@ async def bazi_endpoint(request: Request):
 
 @app.get("/")
 def read_root():
-    return {"message": "마스터 엔진 (9-Cores) 100% 통합 및 가동 완료!"}
+    return {"message": "마스터 엔진 (10-Cores) 100% 통합 및 가동 완료!"}
