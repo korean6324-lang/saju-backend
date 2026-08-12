@@ -110,14 +110,16 @@ class ClassicalEngine:
         is_male = (gender == "M")
         gender_title = t["male"] if is_male else t["female"]
 
-        # 🚨 [치명적 버그 수정 완료] 문자열(str) 객체에 .get() 명령어를 써서 에러가 나던 현상을 완벽히 차단했습니다.
+        # 🚨 [치명적 버그 수정 완료] 용신 데이터 타입(String vs Dict) 다형성 완벽 방어막
         yongshin_str = "-"
         if isinstance(yongshin_data, dict):
-            y_val = yongshin_data.get("yongshin")
+            y_val = yongshin_data.get("yongshin", "-")
             if isinstance(y_val, dict):
-                yongshin_str = y_val.get("yongshin", "-")
+                yongshin_str = y_val.get("yongshin", str(y_val))
             else:
-                yongshin_str = str(y_val) if y_val else "-"
+                yongshin_str = str(y_val)
+        elif isinstance(yongshin_data, str):
+            yongshin_str = yongshin_data
         
         day_stem = formatted_bazi["day"]["stem"]
         month_branch = formatted_bazi["month"]["branch"]
@@ -144,7 +146,14 @@ class ClassicalEngine:
         else:
             readings.append({"section": t["title4"], "items": [{"title": t["unknown_time"], "hanja": t["unknown_child"], "text": t["unknown_child_desc"]}]})
 
-        strength = yongshin_data.get("strength", {}).get("status", "") if isinstance(yongshin_data, dict) else ""
+        strength = "-"
+        if isinstance(yongshin_data, dict):
+            strength_val = yongshin_data.get("strength", {})
+            if isinstance(strength_val, dict):
+                strength = strength_val.get("status", "")
+            else:
+                strength = str(strength_val)
+                
         readings.append({"section": t["title5"], "items": self._get_phoenix(strength, lang)})
 
         return readings
