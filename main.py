@@ -39,18 +39,34 @@ def format_bazi_data(engine_result):
     d = split_pillar(bazi_raw.get("day_pillar"))
     h = split_pillar(bazi_raw.get("hour_pillar"))
 
+    # 🚨 핵심: 프론트엔드가 강제로 몇 번을 꺼내든 절대 에러가 나지 않도록
+    # 텅 빈 가짜 기둥(Dummy)을 20개 생성해서 배열을 꽉꽉 채워줍니다!
+    dummy_pillar = {"stem": "", "branch": "", "hidden_stems": []}
+    dummy_list = [dummy_pillar] * 20
+
+    all_pillars = {
+        "year": y, "month": m, "day": d, "hour": h, "time": h,
+        "year_pillar": y, "month_pillar": m, "day_pillar": d, "hour_pillar": h,
+        
+        # 가짜 기둥 20개가 들어있는 배열 투척
+        "daewun": dummy_list, 
+        "sewun": dummy_list, 
+        "wolun": dummy_list, 
+        "timeline": dummy_list,
+        
+        # 혹시 4기둥 전체를 배열로 요구할 경우를 대비한 세트
+        "pillars": [y, m, d, h]
+    }
+
     formatted = {
-        "bazi": {
-            "year": y, "month": m, "day": d, "hour": h, "time": h,
-            # 🚨 핵심: 타임라인 데이터는 배열 형태를 기대하므로 빈 배열 [] 을 줍니다.
-            "daewun": [], "sewun": [], "wolun": [], "timeline": []
-        },
-        # 혹시 거실(최상단)에서 찾을 경우를 대비
-        "daewun": [], "sewun": [], "wolun": [], "timeline": [],
+        "bazi": all_pillars,
         "origin_time": engine_result.get("origin_time"),
         "corrected_time": engine_result.get("corrected_time"),
         "gender": engine_result.get("gender")
     }
+    
+    # 최상단에도 동일하게 복사
+    formatted.update(all_pillars)
     return formatted
 
 @app.post("/api/bazi")
@@ -75,6 +91,7 @@ async def bazi_endpoint(request: Request):
         )
         final_result = format_bazi_data(raw_result)
         
+        # 파트너 데이터가 있을 경우에도 똑같이 가짜 기둥 20개 세트를 줍니다.
         partner_datetime_str = user_data.get("partner_datetime_str")
         if partner_datetime_str:
             partner_gender = user_data.get("partner_gender")
