@@ -77,8 +77,8 @@ class CoreAstroEngine:
         month_branch = EARTHLY_BRANCHES[month_branch_idx]
         
         # --- 일주(Day) 및 시주(Hour) 야자시 로직 ---
-        # 🚨 [버그 수정 완료] 파이썬 절대 일수 동기화 오프셋(+36) 교체
-        base_day_index = (target_dt.toordinal() + 36) % 60 
+        # 🌟 [복구 완료] 파이썬 절대 일수 동기화 오프셋(+14) 원복
+        base_day_index = (target_dt.toordinal() + 14) % 60 
         
         hour_val = target_dt.hour
         hour_index = ((hour_val + 1) // 2) % 12
