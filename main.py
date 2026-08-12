@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime
+from datetime import datetime, timedelta
 from korean_lunar_calendar import KoreanLunarCalendar 
 
 # ==========================================
@@ -27,7 +27,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 팩토리(엔진) 인스턴스화
 astro = CoreAstroEngine()
 mech = MechanicsEngine()
 dict_db = DictionaryEngine()
@@ -39,7 +38,6 @@ unse = UnseEngine()
 yong = YongshinEngine()
 clas = ClassicalEngine() 
 
-# 🚨 30 납음오행 심층 해석 DB
 NAPEUM_RICH_DESC = {
     "해중금": "바다 깊은 곳에 잠긴 보석. 겉으로 드러나지 않는 깊은 내공과 무한한 잠재력을 지니고 있습니다.",
     "노중화": "화로 속에서 타오르는 불꽃. 따뜻하고 보호받는 환경에서 은근한 끈기와 지성을 발휘합니다.",
@@ -75,13 +73,18 @@ NAPEUM_RICH_DESC = {
     "대해수": "모든 것을 삼키는 거대한 바다. 속을 알 수 없는 깊은 지혜와 모든 선악을 포용하는 압도적인 수용력이 있습니다."
 }
 
-def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None, partner_gender=None, apply_trad=False, lunar_m=None):
+def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None, partner_gender=None, apply_trad=False, lunar_m=None, unknown_time=False):
     bazi_raw = astro_res.get("bazi", {})
     
     y_stem, y_branch = bazi_raw["year_pillar"][0], bazi_raw["year_pillar"][1]
     m_stem, m_branch = bazi_raw["month_pillar"][0], bazi_raw["month_pillar"][1]
     d_stem, d_branch = bazi_raw["day_pillar"][0], bazi_raw["day_pillar"][1]
-    h_stem, h_branch = bazi_raw["hour_pillar"][0], bazi_raw["hour_pillar"][1]
+    
+    # 🚨 시간 모름 옵션 활성화 시 시주를 완벽하게 블랭크 처리
+    if unknown_time:
+        h_stem, h_branch = "-", "-"
+    else:
+        h_stem, h_branch = bazi_raw["hour_pillar"][0], bazi_raw["hour_pillar"][1]
     
     if apply_trad and lunar_m:
         trad_m_stem, trad_m_branch = mech.get_traditional_month_pillar(y_stem, lunar_m)
@@ -91,6 +94,8 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
     day_master = d_stem
 
     def get_pillar(stem, branch):
+        if stem == "-" or branch == "-":
+            return {"stem": "-", "branch": "-", "stem_tg": "-", "branch_tg": "-", "napeum": "-"}
         return {
             "stem": stem, "branch": branch,
             "stem_tg": mech.get_ten_god(day_master, stem),
@@ -106,12 +111,24 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
     }
 
     hidden_stems = {
-        "year": mech.get_hidden_stems(y_branch), "month": mech.get_hidden_stems(m_branch),
-        "day": mech.get_hidden_stems(d_branch), "hour": mech.get_hidden_stems(h_branch)
+        "year": mech.get_hidden_stems(y_branch), 
+        "month": mech.get_hidden_stems(m_branch),
+        "day": mech.get_hidden_stems(d_branch), 
+        "hour": {"initial": ["-"], "middle": ["-"], "main": ["-"]} if unknown_time else mech.get_hidden_stems(h_branch)
     }
+    
     gongmang = mech.get_gongmang(d_stem, d_branch)
-    elements_dist = mech.get_five_elements_distribution([y_stem, m_stem, d_stem, h_stem], [y_branch, m_branch, d_branch, h_branch])
-    tonggeun = mech.check_tonggeun(day_master, {"year": y_branch, "month": m_branch, "day": d_branch, "hour": h_branch})
+    
+    # 4기둥이 아닌 3기둥(시주 제외)으로도 에러 없이 계산되도록 보호
+    valid_stems = [s for s in [y_stem, m_stem, d_stem, h_stem] if s != "-"]
+    valid_branches = [b for b in [y_branch, m_branch, d_branch, h_branch] if b != "-"]
+    
+    elements_dist = mech.get_five_elements_distribution(valid_stems, valid_branches)
+    
+    tonggeun_branches = {"year": y_branch, "month": m_branch, "day": d_branch}
+    if not unknown_time:
+        tonggeun_branches["hour"] = h_branch
+    tonggeun = mech.check_tonggeun(day_master, tonggeun_branches)
 
     geokguk = yong.determine_geokguk(bazi, hidden_stems)
     strength = yong.determine_strength(bazi)
@@ -134,7 +151,7 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
         {"year": y_stem, "month": m_stem, "day": d_stem, "hour": h_stem},
         {"year": y_branch, "month": m_branch, "day": d_branch, "hour": h_branch}
     )
-    disasters = dyn.scan_disasters([y_branch, m_branch, d_branch, h_branch])
+    disasters = dyn.scan_disasters(valid_branches)
 
     daewun_raw = mech.get_daewun_sequence(gender, y_stem, m_stem, m_branch, int(daewun_num), 10)
     sewun_raw = mech.get_sewun_sequence(datetime.now().year - 4, 10)
@@ -186,25 +203,19 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
             "inner": ghap.get_inner_compatibility(d_branch, p_day_branch)
         }
 
-    classical_stars = clas.get_four_pillars_stars({
-        "year": y_branch, "month": m_branch, "day": d_branch, "hour": h_branch
-    })
+    classical_stars_branches = {"year": y_branch, "month": m_branch, "day": d_branch}
+    if not unknown_time:
+        classical_stars_branches["hour"] = h_branch
+        
+    classical_stars = clas.get_four_pillars_stars(classical_stars_branches)
     classical_reading = clas.generate_classical_reading(bazi, disasters, yongshin_data)
 
-    # ----------------------------------------------------
-    # 🚨 9. Metadata (지장간 등 모든 툴팁 누락 완벽 해결)
-    # ----------------------------------------------------
     metadata = {}
-    
-    # 사주 원국, 지장간, 대운, 세운 어디서든 툴팁이 100% 작동하도록
-    # 10천간, 12지지, 10십성, 공망을 모조리 수집합니다.
     terms_to_fetch = set([
         "甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸",
         "子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥",
         "비견", "겁재", "식신", "상관", "편재", "정재", "편관", "정관", "편인", "정인", "공망"
     ])
-    
-    # 추가적으로 연산 과정에서 나온 특이 케이스(기타 용어) 방어
     for p in bazi.values():
         terms_to_fetch.add(p['stem_tg'])
         terms_to_fetch.add(p['branch_tg'])
@@ -228,9 +239,17 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
         else:
             return f"{base_desc} 말년과 자식궁, 그리고 남모르는 비밀스러운 영혼의 파동입니다."
 
+    napeum_reading = [
+        {"pillar": "연주 (초년)", "full": bazi["year"]["napeum"], "desc": get_napeum_desc("year", bazi["year"]["napeum"])},
+        {"pillar": "월주 (청년)", "full": bazi["month"]["napeum"], "desc": get_napeum_desc("month", bazi["month"]["napeum"])},
+        {"pillar": "일주 (중년)", "full": bazi["day"]["napeum"], "desc": get_napeum_desc("day", bazi["day"]["napeum"])},
+    ]
+    if not unknown_time:
+        napeum_reading.append({"pillar": "시주 (말년)", "full": bazi["hour"]["napeum"], "desc": get_napeum_desc("hour", bazi["hour"]["napeum"])})
+
     return {
         "origin_time": astro_res["origin_time"],
-        "corrected_time": astro_res["corrected_time"],
+        "corrected_time": "시간 모름 (보정 생략)" if unknown_time else astro_res["corrected_time"],
         "gender": "Male" if gender == "M" else "Female",
         "applied_traditional": apply_trad,
         "bazi": bazi,
@@ -256,12 +275,7 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
             "disasters": disasters
         },
         "unse": unse_data,
-        "napeum_reading": [
-            {"pillar": "연주 (초년)", "full": bazi["year"]["napeum"], "desc": get_napeum_desc("year", bazi["year"]["napeum"])},
-            {"pillar": "월주 (청년)", "full": bazi["month"]["napeum"], "desc": get_napeum_desc("month", bazi["month"]["napeum"])},
-            {"pillar": "일주 (중년)", "full": bazi["day"]["napeum"], "desc": get_napeum_desc("day", bazi["day"]["napeum"])},
-            {"pillar": "시주 (말년)", "full": bazi["hour"]["napeum"], "desc": get_napeum_desc("hour", bazi["hour"]["napeum"])}
-        ],
+        "napeum_reading": napeum_reading,
         "timeline": {
             "daewun": daewun_raw,
             "sewun": sewun_raw
@@ -289,8 +303,13 @@ async def bazi_endpoint(request: Request):
         datetime_str = user_data.get("datetime_str")
         calendar_type = user_data.get("calendar_type", "solar")
         gender = user_data.get("gender")
+        
+        # 🚨 글로벌 진태양시 파라미터 수신 (경도, 타임존)
         longitude = float(user_data.get("longitude", 127.0))
-        apply_true_solar = user_data.get("apply_true_solar", True)
+        timezone = int(user_data.get("timezone", 9)) 
+        unknown_time = user_data.get("unknown_time", False)
+        
+        apply_true_solar = False if unknown_time else user_data.get("apply_true_solar", True)
         apply_yaja = user_data.get("apply_yaja", True)
         daewun_num = user_data.get("daewun_num", 1)
         
@@ -298,6 +317,12 @@ async def bazi_endpoint(request: Request):
         lunar_m = user_data.get("lunar_month")
         
         dt_input = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M")
+        
+        # 🚨 [글로벌 엔진 핵심] 사용자가 위치한 시간대(UTC+8 등)의 로컬 시간을
+        # 명리 엔진이 기준점으로 삼는 KST(UTC+9) 형태로 상대적 변환 후 주입!
+        # 이렇게 하면 기존 엔진의 깊숙한 코드를 수정하지 않아도 완벽하게 시차가 계산됩니다.
+        if timezone != 9:
+            dt_input = dt_input - timedelta(hours=timezone) + timedelta(hours=9)
         
         if calendar_type in ["lunar", "lunar_leap"]:
             cal = KoreanLunarCalendar()
@@ -328,7 +353,7 @@ async def bazi_endpoint(request: Request):
             else:
                 partner_dt = p_dt_input
 
-        final_result = build_full_response(dt_kst, astro_res, gender, daewun_num, partner_dt, partner_gender, apply_trad, lunar_m)
+        final_result = build_full_response(dt_kst, astro_res, gender, daewun_num, partner_dt, partner_gender, apply_trad, lunar_m, unknown_time)
 
         return final_result
 
@@ -338,4 +363,4 @@ async def bazi_endpoint(request: Request):
 
 @app.get("/")
 def read_root():
-    return {"message": "마스터 엔진 가동 중 (지장간 툴팁 누락 완벽 해결)"}
+    return {"message": "마스터 엔진 가동 중 (글로벌 타임존 및 시간모름 대응 완료)"}
