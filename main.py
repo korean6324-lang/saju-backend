@@ -73,14 +73,13 @@ NAPEUM_RICH_DESC = {
     "대해수": "모든 것을 삼키는 거대한 바다. 속을 알 수 없는 깊은 지혜와 모든 선악을 포용하는 압도적인 수용력이 있습니다."
 }
 
-def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None, partner_gender=None, apply_trad=False, lunar_m=None, unknown_time=False):
+def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=None, apply_trad=False, lunar_m=None, unknown_time=False):
     bazi_raw = astro_res.get("bazi", {})
     
     y_stem, y_branch = bazi_raw["year_pillar"][0], bazi_raw["year_pillar"][1]
     m_stem, m_branch = bazi_raw["month_pillar"][0], bazi_raw["month_pillar"][1]
     d_stem, d_branch = bazi_raw["day_pillar"][0], bazi_raw["day_pillar"][1]
     
-    # 🚨 시간 모름 옵션 활성화 시 시주를 완벽하게 블랭크 처리
     if unknown_time:
         h_stem, h_branch = "-", "-"
     else:
@@ -119,7 +118,6 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
     
     gongmang = mech.get_gongmang(d_stem, d_branch)
     
-    # 4기둥이 아닌 3기둥(시주 제외)으로도 에러 없이 계산되도록 보호
     valid_stems = [s for s in [y_stem, m_stem, d_stem, h_stem] if s != "-"]
     valid_branches = [b for b in [y_branch, m_branch, d_branch, h_branch] if b != "-"]
     
@@ -184,15 +182,26 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
         }
     }
 
+    # 🚨 [글로벌 파트너 엔진 가동]
     gunghap_data = None
-    if partner_dt and partner_gender:
+    if partner_info:
+        p_dt = partner_info["dt"]
+        p_gender = partner_info["gender"]
+        p_lon = partner_info["longitude"]
+        p_unk_time = partner_info["unknown_time"]
+        
         my_year = dt_kst.year
-        p_year = partner_dt.year
-        p_astro = astro.calculate_bazi(partner_dt, partner_gender)
+        p_year = p_dt.year
+        
+        # 파트너 시간 모름 체크 시 진태양시 보정(균시차) 생략
+        p_apply_true_solar = False if p_unk_time else True
+        
+        # 글로벌 위치(경도)를 반영한 파트너의 정확한 8글자 도출
+        p_astro = astro.calculate_bazi(p_dt, p_gender, p_lon, p_apply_true_solar, True)
         p_day_branch = p_astro["bazi"]["day_pillar"][1]
 
         my_star = ghap.get_bonmyeongseong(my_year, gender)
-        p_star = ghap.get_bonmyeongseong(p_year, partner_gender)
+        p_star = ghap.get_bonmyeongseong(p_year, p_gender)
         
         gunghap_data = {
             "my_samwon": ghap.get_samwon_gapja(my_year),
@@ -304,7 +313,6 @@ async def bazi_endpoint(request: Request):
         calendar_type = user_data.get("calendar_type", "solar")
         gender = user_data.get("gender")
         
-        # 🚨 글로벌 진태양시 파라미터 수신 (경도, 타임존)
         longitude = float(user_data.get("longitude", 127.0))
         timezone = int(user_data.get("timezone", 9)) 
         unknown_time = user_data.get("unknown_time", False)
@@ -318,9 +326,6 @@ async def bazi_endpoint(request: Request):
         
         dt_input = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M")
         
-        # 🚨 [글로벌 엔진 핵심] 사용자가 위치한 시간대(UTC+8 등)의 로컬 시간을
-        # 명리 엔진이 기준점으로 삼는 KST(UTC+9) 형태로 상대적 변환 후 주입!
-        # 이렇게 하면 기존 엔진의 깊숙한 코드를 수정하지 않아도 완벽하게 시차가 계산됩니다.
         if timezone != 9:
             dt_input = dt_input - timedelta(hours=timezone) + timedelta(hours=9)
         
@@ -336,13 +341,23 @@ async def bazi_endpoint(request: Request):
             
         astro_res = astro.calculate_bazi(dt_kst, gender, longitude, apply_true_solar, apply_yaja)
         
-        partner_dt = None
-        partner_gender = user_data.get("partner_gender")
+        # 🚨 [글로벌 파트너 정보 파싱 및 KST 변환 적용]
+        partner_info = None
         p_dt_str = user_data.get("partner_datetime_str")
-        p_calendar_type = user_data.get("partner_calendar_type", "solar")
         
         if p_dt_str:
+            p_calendar_type = user_data.get("partner_calendar_type", "solar")
+            p_gender = user_data.get("partner_gender")
+            p_lon = float(user_data.get("partner_longitude", 127.0))
+            p_tz = int(user_data.get("partner_timezone", 9))
+            p_unk_time = user_data.get("partner_unknown_time", False)
+            
             p_dt_input = datetime.strptime(p_dt_str, "%Y-%m-%d %H:%M")
+            
+            # 파트너가 해외 출생일 경우, KST(UTC+9)로 상대적 시간 역산
+            if p_tz != 9:
+                p_dt_input = p_dt_input - timedelta(hours=p_tz) + timedelta(hours=9)
+                
             if p_calendar_type in ["lunar", "lunar_leap"]:
                 p_cal = KoreanLunarCalendar()
                 p_is_leap = (p_calendar_type == "lunar_leap")
@@ -352,8 +367,16 @@ async def bazi_endpoint(request: Request):
                     partner_dt = p_dt_input
             else:
                 partner_dt = p_dt_input
+                
+            # 엔진으로 쏴줄 패키징 데이터 조립
+            partner_info = {
+                "dt": partner_dt,
+                "gender": p_gender,
+                "longitude": p_lon,
+                "unknown_time": p_unk_time
+            }
 
-        final_result = build_full_response(dt_kst, astro_res, gender, daewun_num, partner_dt, partner_gender, apply_trad, lunar_m, unknown_time)
+        final_result = build_full_response(dt_kst, astro_res, gender, daewun_num, partner_info, apply_trad, lunar_m, unknown_time)
 
         return final_result
 
@@ -363,4 +386,4 @@ async def bazi_endpoint(request: Request):
 
 @app.get("/")
 def read_root():
-    return {"message": "마스터 엔진 가동 중 (글로벌 타임존 및 시간모름 대응 완료)"}
+    return {"message": "마스터 엔진 가동 중 (파트너 글로벌 타임존 및 시간모름 완벽 지원)"}
