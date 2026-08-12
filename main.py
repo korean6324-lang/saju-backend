@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
-import copy  # 🚨 원본 DB 오염 방지
+import copy  
 from korean_lunar_calendar import KoreanLunarCalendar 
 
 # ==========================================
@@ -65,7 +65,6 @@ GLOBAL_TERM_DB = {
     "辛": {"ja": "陰金。精巧な宝石、繊細さと完璧主義を意味します。", "zh-CN": "阴金。精巧的宝石，象征细腻与完美主义。", "zh-TW": "陰金。精巧的寶石，象徵細膩與完美主義。"},
     "壬": {"ja": "陽水。全てを飲み込む巨大な海、深い知恵とスケールを意味します。", "zh-CN": "阳水。浩瀚的海洋，象征深邃的智慧与格局。", "zh-TW": "陽水。浩瀚的海洋，象徵深邃的智慧與格局。"},
     "癸": {"ja": "陰水。大地を潤す雨や泉、情報力と生命力を意味します。", "zh-CN": "阴水。滋润大地的雨露，象征信息力与生命力。", "zh-TW": "陰水。滋潤大地的雨露，象徵資訊力與生命力。"},
-
     "子": {"ja": "真冬の水気。知恵と秘密、種子を象徴します。", "zh-CN": "严冬之水。象征智慧、秘密与繁衍的种子。", "zh-TW": "嚴冬之水。象徵智慧、秘密與繁衍的種子。"},
     "丑": {"ja": "凍りついた土。忍耐と準備、大器晩成を象徴します。", "zh-CN": "冰封之土。象征忍耐、准备与大器晚成。", "zh-TW": "冰封之土。象徵忍耐、準備與大器晚成。"},
     "寅": {"ja": "初春の木気。躍動するエネルギーと権力、始まりを象徴します。", "zh-CN": "初春之木。象征跃动的能量、权力与开端。", "zh-TW": "初春之木。象徵躍動的能量、權力與開端。"},
@@ -78,7 +77,6 @@ GLOBAL_TERM_DB = {
     "酉": {"ja": "秋真っ盛りの金気。確実な結果と鋭さ、完璧主義を象徴します。", "zh-CN": "仲秋之金。确切的结果与锐利，象征完美主义。", "zh-TW": "仲秋之金。確切的結果與銳利，象徵完美主義。"},
     "戌": {"ja": "秋を終える土。荒涼とした土、守護と忠誠、名誉を象徴します。", "zh-CN": "晚秋之土。苍凉之土，象征守护、忠诚与名誉。", "zh-TW": "晚秋之土。蒼涼之土，象徵守護、忠誠與名譽。"},
     "亥": {"ja": "初冬の水気。全てを受け入れる海、蓄積と大きなスケールを象徴します。", "zh-CN": "初冬之水。包容一切的海洋，象征积累与宏大格局。", "zh-TW": "初冬之水。包容一切的海洋，象徵積累與宏大格局。"},
-
     "비견": {"ja": "【自立と競争】 自分と同じ気運。独立心、競争、同僚を意味します。", "zh-CN": "【自立与竞争】 与自身相同的气运。象征独立、竞争与同僚。", "zh-TW": "【自立與競爭】 與自身相同的氣運。象徵獨立、競爭與同僚。"},
     "겁재": {"ja": "【奪取と闘争】 財を奪う気運。強力な勝負欲、野心、支出を意味します。", "zh-CN": "【夺取与斗争】 夺取财富的气运。象征强烈的胜负欲、野心与支出。", "zh-TW": "【奪取與鬥爭】 奪取財富的氣運。象徵強烈的勝負慾、野心與支出。"},
     "식신": {"ja": "【探求と表現】 自分が生み出す気運。専門性、研究、食福、寿命を意味します。", "zh-CN": "【探究与表达】 自身生出的气运。象征专业性、研究、食禄与寿命。", "zh-TW": "【探究與表達】 自身生出的氣運。象徵專業性、研究、食祿與壽命。"},
@@ -89,7 +87,6 @@ GLOBAL_TERM_DB = {
     "정관": {"ja": "【規律と合理】 正当な統制。合理的な原則、法度、正しい職場、安定を意味します。", "zh-CN": "【规律与合理】 正当的控制。象征合理原则、法度、稳定的职业与安稳。", "zh-TW": "【規律與合理】 正當的控制。象徵合理原則、法度、穩定的職業與安穩。"},
     "편인": {"ja": "【直感と偏心】 偏った受容。鋭い直感力、特殊学問、疑い、孤独を意味します。", "zh-CN": "【直觉与偏心】 偏向的吸收。象征敏锐直觉、特殊学问、猜忌与孤独。", "zh-TW": "【直覺與偏心】 偏向的吸收。象徵敏銳直覺、特殊學問、猜忌與孤獨。"},
     "정인": {"ja": "【知恵と包容】 正当な受容。学問、道徳心、母親の愛、資格、文書を意味します。", "zh-CN": "【智慧与包容】 正当的吸收。象征学问、道德、母爱、资格与文书。", "zh-TW": "【智慧與包容】 正當的吸收。象徵學問、道德、母愛、資格與文書。"},
-    
     "공망": {"ja": "【空亡】 空しく満たされない気運。その柱の長所が減少し、虚しさを感じやすいです。", "zh-CN": "【空亡】 空虚不圆满的气运。该柱的优点减弱，容易感到匮乏。", "zh-TW": "【空亡】 空虛不圓滿的氣運。該柱的優點減弱，容易感到匱乏。"}
 }
 
@@ -178,7 +175,7 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=No
         sw["stem_tg"] = mech.get_ten_god(day_master, sw["stem"])
         sw["branch_tg"] = mech.get_ten_god(day_master, sw["branch"])
 
-    now_astro = astro.calculate_bazi(datetime.now(), gender, 127.0, True, True)  # 🚨 글로벌 연산 방어 (파라미터 누락 방지)
+    now_astro = astro.calculate_bazi(datetime.now(), gender, 127.0, True, True)
     now_y, now_y_b = now_astro["bazi"]["year_pillar"][0], now_astro["bazi"]["year_pillar"][1]
     now_m, now_m_b = now_astro["bazi"]["month_pillar"][0], now_astro["bazi"]["month_pillar"][1]
     now_d, now_d_b = now_astro["bazi"]["day_pillar"][0], now_astro["bazi"]["day_pillar"][1]
@@ -227,10 +224,17 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=No
         
     for term in terms_to_fetch:
         if term and term != "일간" and term != "-": 
-            # 🚨 원본 DB 오염 방지를 위한 deepcopy 적용
             original_meta = mech.get_metadata(term)
-            meta = copy.deepcopy(original_meta) if original_meta else {}
-            lookup_key = term if term in GLOBAL_TERM_DB else meta.get("hanja")
+            
+            # 🚨 [치명적 버그 수정 1] 강제 딕셔너리화 안전장치
+            if isinstance(original_meta, str):
+                meta = {"hanja": "", "meaning": original_meta}
+            elif isinstance(original_meta, dict):
+                meta = copy.deepcopy(original_meta)
+            else:
+                meta = {"hanja": "", "meaning": ""}
+                
+            lookup_key = term if term in GLOBAL_TERM_DB else meta.get("hanja", "")
             if lookup_key in GLOBAL_TERM_DB and lang != "ko":
                 meta["meaning"] = GLOBAL_TERM_DB[lookup_key].get(lang, meta.get("meaning", ""))
             metadata[term] = meta
@@ -262,6 +266,7 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=No
         napeum_reading.append({"pillar": lm["h"], "full": bazi["hour"]["napeum"], "desc": get_napeum_desc("hour", bazi["hour"]["napeum"])})
 
     return {
+        "status": "success",
         "origin_time": astro_res["origin_time"],
         "corrected_time": lm["u_time"] if unknown_time else astro_res["corrected_time"],
         "gender": "Male" if gender == "M" else "Female",
@@ -282,7 +287,8 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=No
 @app.get("/api/dictionary")
 def dictionary_endpoint(q: str = "", lang: str = "ko"):
     results = dict_db.search(q)
-    if lang == "ko" or not results:
+    # 🚨 [치명적 버그 수정 2] 사전 결과가 리스트 형식이 아닐 때 즉시 반환하여 에러 방어
+    if lang == "ko" or not isinstance(results, list):
         return results
     
     translated = []
