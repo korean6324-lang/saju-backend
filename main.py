@@ -110,7 +110,7 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_dt=None
     # 5. Timeline (대운 및 세운)
     # ----------------------------------------------------
     daewun_raw = mech.get_daewun_sequence(gender, y_stem, m_stem, m_branch, int(daewun_num), 10)
-    sewun_raw = mech.get_sewun_sequence(datetime.now().year, 10)
+    sewun_raw = mech.get_sewun_sequence(datetime.now().year - 4, 10)
 
     for dw in daewun_raw["timeline"]:
         dw["stem_tg"] = mech.get_ten_god(day_master, dw["stem"])
