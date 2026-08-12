@@ -1,5 +1,3 @@
-# core_mechanics.py
-
 # ==========================================
 # 0. 60갑자 납음오행 (納音五行) DB
 # ==========================================
@@ -220,9 +218,10 @@ class MechanicsEngine:
 
     def check_tonggeun(self, target_stem: str, branches_dict: dict) -> dict:
         """통근(通根) 스캐너"""
+        # 🚨 [버그 수정 완료] 프론트엔드 React 컴포넌트 키값 동기화: has_root -> is_rooted
         result = {
             "target": target_stem,
-            "has_root": False,
+            "is_rooted": False,
             "total_power": 0,
             "roots": []
         }
@@ -241,7 +240,8 @@ class MechanicsEngine:
                     weight = 1.2 if h_stem == target_stem else 1.0
                     calculated_power = int(power * weight)
                     
-                    result["has_root"] = True
+                    # 🚨 [버그 수정 완료] 프론트엔드 통신 호환 키값 적용
+                    result["is_rooted"] = True
                     result["total_power"] += calculated_power
                     result["roots"].append({
                         "pillar": pillar_name,

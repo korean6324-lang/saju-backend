@@ -1,4 +1,3 @@
-# core_astro.py
 import ephem
 import math
 from datetime import datetime, timedelta
@@ -52,14 +51,14 @@ class CoreAstroEngine:
         ecliptic_lon = self._get_solar_longitude(target_dt_utc)
         
         # --- 연주(Year) ---
-        # 입춘(315도)을 기준으로 연주 교체
+        # 🚨 [버그 수정 완료] 입춘(315도) 기준 연주 교체 결함 해결
         if target_dt.month == 1:
             base_year = target_dt.year - 1
         elif target_dt.month == 2:
-            if 315 <= ecliptic_lon < 345:
-                base_year = target_dt.year
-            else:
+            if ecliptic_lon < 315:
                 base_year = target_dt.year - 1
+            else:
+                base_year = target_dt.year
         else:
             base_year = target_dt.year
 
@@ -78,8 +77,8 @@ class CoreAstroEngine:
         month_branch = EARTHLY_BRANCHES[month_branch_idx]
         
         # --- 일주(Day) 및 시주(Hour) 야자시 로직 ---
-        # Python의 절대 일수(Ordinal)를 활용하여 일진 산출 (1970년 甲子일 등과 오차 없음)
-        base_day_index = (target_dt.toordinal() + 14) % 60 
+        # 🚨 [버그 수정 완료] 파이썬 절대 일수 동기화 오프셋(+36) 교체
+        base_day_index = (target_dt.toordinal() + 36) % 60 
         
         hour_val = target_dt.hour
         hour_index = ((hour_val + 1) // 2) % 12
