@@ -196,19 +196,19 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=No
         # 파트너 시간 모름 체크 시 진태양시 보정(균시차) 생략
         p_apply_true_solar = False if p_unk_time else True
         
-        # 글로벌 위치(경도)를 반영한 파트너의 정확한 8글자 도출
         p_astro = astro.calculate_bazi(p_dt, p_gender, p_lon, p_apply_true_solar, True)
         p_day_branch = p_astro["bazi"]["day_pillar"][1]
 
         my_star = ghap.get_bonmyeongseong(my_year, gender)
         p_star = ghap.get_bonmyeongseong(p_year, p_gender)
         
+        # 🚨 남녀(Gender) 인자 100% 매칭: 남극녀/여극남의 팩트폭행 도출
         gunghap_data = {
             "my_samwon": ghap.get_samwon_gapja(my_year),
             "my_star": my_star,
             "partner_samwon": ghap.get_samwon_gapja(p_year),
             "partner_star": p_star,
-            "gugung": ghap.get_gugung_compatibility(my_star["number"], p_star["number"]),
+            "gugung": ghap.get_gugung_compatibility(my_star["number"], gender, p_star["number"], p_gender),
             "inner": ghap.get_inner_compatibility(d_branch, p_day_branch)
         }
 
@@ -217,7 +217,9 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=No
         classical_stars_branches["hour"] = h_branch
         
     classical_stars = clas.get_four_pillars_stars(classical_stars_branches)
-    classical_reading = clas.generate_classical_reading(bazi, disasters, yongshin_data)
+    
+    # 🚨 본인의 성별(Gender) 인자 완벽하게 전달 (배우자궁, 자식궁 남녀 분리 해석)
+    classical_reading = clas.generate_classical_reading(bazi, disasters, yongshin_data, gender)
 
     metadata = {}
     terms_to_fetch = set([
@@ -341,7 +343,6 @@ async def bazi_endpoint(request: Request):
             
         astro_res = astro.calculate_bazi(dt_kst, gender, longitude, apply_true_solar, apply_yaja)
         
-        # 🚨 [글로벌 파트너 정보 파싱 및 KST 변환 적용]
         partner_info = None
         p_dt_str = user_data.get("partner_datetime_str")
         
@@ -354,7 +355,6 @@ async def bazi_endpoint(request: Request):
             
             p_dt_input = datetime.strptime(p_dt_str, "%Y-%m-%d %H:%M")
             
-            # 파트너가 해외 출생일 경우, KST(UTC+9)로 상대적 시간 역산
             if p_tz != 9:
                 p_dt_input = p_dt_input - timedelta(hours=p_tz) + timedelta(hours=9)
                 
@@ -368,7 +368,6 @@ async def bazi_endpoint(request: Request):
             else:
                 partner_dt = p_dt_input
                 
-            # 엔진으로 쏴줄 패키징 데이터 조립
             partner_info = {
                 "dt": partner_dt,
                 "gender": p_gender,
@@ -386,4 +385,4 @@ async def bazi_endpoint(request: Request):
 
 @app.get("/")
 def read_root():
-    return {"message": "마스터 엔진 가동 중 (파트너 글로벌 타임존 및 시간모름 완벽 지원)"}
+    return {"message": "마스터 엔진 가동 중 (남녀 분리 팩트폭행 엔진 탑재 완벽 대응)"}
