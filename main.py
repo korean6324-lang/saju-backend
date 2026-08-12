@@ -26,35 +26,33 @@ def format_bazi_data(engine_result):
     
     def split_pillar(pillar_str):
         if not pillar_str or len(pillar_str) < 2:
-            return {"stem": "", "branch": "", "hidden_stems": []}
-        branch_char = pillar_str[1]
-        return {
-            "stem": pillar_str[0], 
-            "branch": branch_char,
-            "hidden_stems": JIJANGGAN.get(branch_char, [])
-        }
+            stem, branch_char, stems = "", "", []
+        else:
+            stem = pillar_str[0]
+            branch_char = pillar_str[1]
+            stems = JIJANGGAN.get(branch_char, [])
+        
+        base = {"stem": stem, "branch": branch_char, "hidden_stems": stems}
+        # 🚨 프론트엔드가 객체 안의 객체(.pillar.hidden_stems)를 찾을 때를 대비한 2중 방어막!
+        base["pillar"] = {"stem": stem, "branch": branch_char, "hidden_stems": stems}
+        base["ganji"] = {"stem": stem, "branch": branch_char, "hidden_stems": stems}
+        return base
 
     y = split_pillar(bazi_raw.get("year_pillar"))
     m = split_pillar(bazi_raw.get("month_pillar"))
     d = split_pillar(bazi_raw.get("day_pillar"))
     h = split_pillar(bazi_raw.get("hour_pillar"))
 
-    # 🚨 핵심: 프론트엔드가 강제로 몇 번을 꺼내든 절대 에러가 나지 않도록
-    # 텅 빈 가짜 기둥(Dummy)을 20개 생성해서 배열을 꽉꽉 채워줍니다!
-    dummy_pillar = {"stem": "", "branch": "", "hidden_stems": []}
-    dummy_list = [dummy_pillar] * 20
+    # 텅 빈 가짜 객체(Dummy)에도 동일한 2중 방어막 적용
+    dummy = split_pillar("")
+    dummy_list = [dummy] * 20
 
     all_pillars = {
-        "year": y, "month": m, "day": d, "hour": h, "time": h,
+        "year": y, "month": m, "day": d, "hour": h, "time": h, "date": d,
         "year_pillar": y, "month_pillar": m, "day_pillar": d, "hour_pillar": h,
-        
-        # 가짜 기둥 20개가 들어있는 배열 투척
-        "daewun": dummy_list, 
-        "sewun": dummy_list, 
-        "wolun": dummy_list, 
-        "timeline": dummy_list,
-        
-        # 혹시 4기둥 전체를 배열로 요구할 경우를 대비한 세트
+        "yearPillar": y, "monthPillar": m, "dayPillar": d, "hourPillar": h,
+        "nyeon": y, "wol": m, "il": d, "si": h,
+        "daewun": dummy_list, "sewun": dummy_list, "wolun": dummy_list, "timeline": dummy_list,
         "pillars": [y, m, d, h]
     }
 
@@ -65,7 +63,6 @@ def format_bazi_data(engine_result):
         "gender": engine_result.get("gender")
     }
     
-    # 최상단에도 동일하게 복사
     formatted.update(all_pillars)
     return formatted
 
@@ -91,7 +88,6 @@ async def bazi_endpoint(request: Request):
         )
         final_result = format_bazi_data(raw_result)
         
-        # 파트너 데이터가 있을 경우에도 똑같이 가짜 기둥 20개 세트를 줍니다.
         partner_datetime_str = user_data.get("partner_datetime_str")
         if partner_datetime_str:
             partner_gender = user_data.get("partner_gender")
