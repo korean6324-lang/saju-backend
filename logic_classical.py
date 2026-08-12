@@ -110,7 +110,14 @@ class ClassicalEngine:
         is_male = (gender == "M")
         gender_title = t["male"] if is_male else t["female"]
 
-        yongshin_str = yongshin_data.get("yongshin", {}).get("yongshin", "-") if isinstance(yongshin_data, dict) else "-"
+        # 🚨 [치명적 버그 수정 완료] 문자열(str) 객체에 .get() 명령어를 써서 에러가 나던 현상을 완벽히 차단했습니다.
+        yongshin_str = "-"
+        if isinstance(yongshin_data, dict):
+            y_val = yongshin_data.get("yongshin")
+            if isinstance(y_val, dict):
+                yongshin_str = y_val.get("yongshin", "-")
+            else:
+                yongshin_str = str(y_val) if y_val else "-"
         
         day_stem = formatted_bazi["day"]["stem"]
         month_branch = formatted_bazi["month"]["branch"]
@@ -137,7 +144,7 @@ class ClassicalEngine:
         else:
             readings.append({"section": t["title4"], "items": [{"title": t["unknown_time"], "hanja": t["unknown_child"], "text": t["unknown_child_desc"]}]})
 
-        strength = yongshin_data.get("strength", {}).get("status", "")
+        strength = yongshin_data.get("strength", {}).get("status", "") if isinstance(yongshin_data, dict) else ""
         readings.append({"section": t["title5"], "items": self._get_phoenix(strength, lang)})
 
         return readings
@@ -156,7 +163,6 @@ class ClassicalEngine:
         return l_db["fmt"].format(season, element)
 
     def _get_chongwun(self, y_tg: str, m_tg: str, lang: str) -> list:
-        # 간단한 매핑 (분량 최적화를 위해 핵심만 다국어 적용)
         db = {
             "ko": {
                 "y_bi": [{"title": "초년의 뼈아픈 자립", "hanja": "自手成家 (자수성가)", "text": "어린 시절의 외로움을 견디며 오직 자기 손으로 뼈 빠지게 일하여 빈손으로 가문을 일으키는 위대한 개척자의 운명입니다."}],
