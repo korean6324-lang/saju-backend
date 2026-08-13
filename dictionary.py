@@ -110,17 +110,70 @@ class DictionaryEngine:
             {"term": "괴강살", "hanja": "魁罡殺", "category": "신살", "meaning": "북두칠성의 우두머리 별. 남에게 절대 굽히지 않는 총명함과 극단적 결단력을 가져 조직의 리더에 어울립니다."},
             {"term": "양인살", "hanja": "羊刃殺", "category": "신살", "meaning": "양의 목을 치는 날카로운 칼날. 불굴의 의지와 끈기로 생살여탈권(의료, 사법)을 쥐는 직업에 유리합니다."},
             {"term": "탕화살", "hanja": "湯火殺", "category": "신살", "meaning": "끓는 물이나 불에 데인다는 뜻. 현대에는 폭발물, 화학물질, 또는 욱하는 맹렬한 분노 조절 장애를 의미하기도 합니다."},
-            {"term": "홍염살", "hanja": "紅艶殺", "category": "신살", "meaning": "붉고 요염한 매력. 도화살과 비슷하나, 특정인이나 소수에게 은근하고 치명적으로 작용하는 다정다감한 매력입니다."}
+            {"term": "홍염살", "hanja": "紅艶殺", "category": "신살", "meaning": "붉고 요염한 매력. 도화살과 비슷하나, 특정인이나 소수에게 은근하고 치명적으로 작용하는 다정다감한 매력입니다."},
+
+            # ================= [당사주 12성] =================
+            {"term": "천귀성", "hanja": "天貴星", "category": "당사주", "meaning": "자(子)에 해당하는 당사주 기운. 부귀영화와 총명함을 관장하며, 하늘이 내린 두뇌로 학업과 관직에서 두각을 나타냅니다."},
+            {"term": "천액성", "hanja": "天厄星", "category": "당사주", "meaning": "축(丑)에 해당하는 당사주 기운. 고난과 인내, 대기만성의 별. 초중년의 풍파를 묵묵히 버텨내어 중말년에 성취를 이룹니다."},
+            {"term": "천권성", "hanja": "天權星", "category": "당사주", "meaning": "인(寅)에 해당하는 당사주 기운. 권력과 통솔력을 상징. 만인을 거느리는 카리스마가 있으나 독단적인 성정으로 마찰을 겪기 쉽습니다."},
+            {"term": "천파성", "hanja": "天破星", "category": "당사주", "meaning": "묘(卯)에 해당하는 당사주 기운. 파재(破財)와 특수 기술의 별. 정교한 손재주와 예술로 자수성가하나 모은 재물이 흩어지는 굴곡이 있습니다."},
+            {"term": "천간성", "hanja": "天奸星", "category": "당사주", "meaning": "진(辰)에 해당하는 당사주 기운. 지략과 임기응변의 별. 두뇌 회전이 빠르고 처세술에 능수능란하여 최악의 위기에서도 벗어납니다."},
+            {"term": "천문성", "hanja": "天文星", "category": "당사주", "meaning": "사(巳)에 해당하는 당사주 기운. 학문과 예술, 예리한 직관의 별. 문장가, 학자나 예술가로서 천재성을 발휘하며 고결한 품격을 지닙니다."},
+            {"term": "천복성", "hanja": "天福星", "category": "당사주", "meaning": "오(午)에 해당하는 당사주 기운. 복록과 여유, 인덕을 상징. 일생토록 의식주가 마르지 않고 숱한 귀인의 도움이 따릅니다."},
+            {"term": "천역성", "hanja": "天驛星", "category": "당사주", "meaning": "미(未)에 해당하는 당사주 기운. 이동과 개척, 역마의 별. 고향을 떠나 넒은 세상으로 나아가야 대운이 열리며 평생 분주하게 살아갑니다."},
+            {"term": "천고성", "hanja": "天孤星", "category": "당사주", "meaning": "신(申)에 해당하는 당사주 기운. 고독과 자립, 깊은 철학의 별. 의존하지 않는 극강의 자립심으로 종교, 학문, 철학 분야에서 일가를 이룹니다."},
+            {"term": "천인성", "hanja": "天刃星", "category": "당사주", "meaning": "유(酉)에 해당하는 당사주 기운. 날카로운 결단력과 수술수의 기운. 맺고 끊음이 냉혹하여 권력직(의료, 사법, 군경)에서 크게 대성합니다."},
+            {"term": "천예성", "hanja": "天藝星", "category": "당사주", "meaning": "술(戌)에 해당하는 당사주 기운. 정교한 재주와 장인정신의 별. 남들이 흉내 내지 못할 독창성과 끈기로 한 분야를 외골수처럼 파고듭니다."},
+            {"term": "천수성", "hanja": "天壽星", "category": "당사주", "meaning": "해(亥)에 해당하는 당사주 기운. 무병장수와 태평한 수용력의 별. 성품이 둥글고 원만하여 무병장수하며 만년에 편안함을 얻습니다."},
+
+            # ================= [비전살 (고서 비밀 구결)] =================
+            {"term": "인사신 삼형살", "hanja": "寅巳申 三刑殺", "category": "비전살", "meaning": "호랑이, 뱀, 원숭이가 모인 무은지형(無恩之刑). 거대한 권력을 쥐거나 반대로 배신, 관재구설, 수술수 등 치명적인 흉액을 겪는 살벌한 기운입니다."},
+            {"term": "축술미 삼형살", "hanja": "丑戌未 三刑殺", "category": "비전살", "meaning": "소, 개, 양이 모인 지세지형(恃勢之刑). 형제나 가까운 지인 간의 뼈아픈 배신, 은혜를 원수로 갚는 형국으로 금전거래 시 파국을 맞습니다."},
+            {"term": "천극지충", "hanja": "天剋地沖", "category": "비전살", "meaning": "하늘(천간)과 땅(지지)이 동시에 극(剋)하고 충(沖)하는 형국. 대운이나 세운에서 만나면 인생의 뿌리가 송두리째 흔들리는 거대한 위기를 뜻합니다."},
+            {"term": "천라지망", "hanja": "天羅地網", "category": "비전살", "meaning": "하늘과 땅에 쳐진 피할 수 없는 그물(戌亥, 辰巳). 세속의 무리한 탐욕을 쫓으면 파산하며, 활인업(사람을 돕는 일)에 종사해야 액운을 면합니다."},
+            {"term": "개두", "hanja": "蓋頭", "category": "비전살", "meaning": "천간이 지지를 위에서 내리누르며 극(剋)하는 형국. 덮개에 가로막혀 기운을 온전히 펴지 못해, 겉은 화려하나 실속이 부족함을 뜻합니다."},
+            {"term": "절각", "hanja": "截脚", "category": "비전살", "meaning": "지지가 천간의 다리를 자르듯 극(剋)하는 형국. 뜻은 높으나 환경이 받쳐주지 않아 매사가 중도에 꺾이고 단절되기 쉬운 답답한 운세입니다."}
         ]
+        
+        # 🚨 [옵션 4] 한글 단어(term) 기준 가나다순 정렬하여 출력의 일관성 확보
+        self.db.sort(key=lambda x: x["term"])
 
     def search(self, query: str):
-        """검색어(한글, 한자)가 포함된 모든 사전 데이터를 반환합니다."""
+        """
+        🚨 [작업 2] 스마트 검색 알고리즘
+        공백을 무시하여 유연하게 매칭하고, 첫 글자 일치(Prefix Match) 시 높은 가중치를 부여합니다.
+        """
         if not query or query.strip() == "":
             return self.db
             
-        q = query.strip()
-        results = []
+        # 1. 유저의 검색어에서 공백 완전 제거 후 소문자화
+        clean_query = query.replace(" ", "").lower()
+        
+        exact_matches = []
+        partial_matches = []
+        
         for item in self.db:
-            if (q in item["term"]) or (q in item["hanja"]) or (q in item["meaning"]) or (q in item["category"]):
-                results.append(item)
-        return results
+            # 2. 내부 데이터도 공백 제거하여 유연한 매칭
+            clean_term = item["term"].replace(" ", "").lower()
+            clean_hanja = item["hanja"].replace(" ", "").lower()
+            clean_meaning = item["meaning"].replace(" ", "").lower()
+            clean_category = item["category"].replace(" ", "").lower()
+            
+            # 검색어가 어디에든 포함되어 있다면 1차 합격
+            if (clean_query in clean_term) or (clean_query in clean_hanja) or \
+               (clean_query in clean_meaning) or (clean_query in clean_category):
+                
+                # 3. 우선순위 가중치: 첫 글자가 일치(시작점)하면 최상단에 배치
+                if clean_term.startswith(clean_query):
+                    exact_matches.append(item)
+                else:
+                    partial_matches.append(item)
+        
+        # 가중치가 높은 결과를 배열의 앞부분에 정렬하여 리턴
+        return exact_matches + partial_matches
+
+    def get_by_category(self, category_name: str):
+        """
+        🚨 [작업 3] 특정 카테고리(예: '당사주', '풍수/궁합') 데이터만 필터링하여 리턴
+        """
+        return [item for item in self.db if item["category"] == category_name]
