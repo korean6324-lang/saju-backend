@@ -80,7 +80,6 @@ FAQ_DB = [
     {"q": "마스터 엔진의 파트너 궁합은 일반 궁합과 무엇이 다른가요?", "a": "본 시스템의 궁합은 단순한 오행의 개수나 띠(연지)만 맞추는 가벼운 궁합이 아닙니다. 다음 3가지 핵심 엔진을 크로스체크하여 인연의 밑바닥까지 팩트폭행합니다.\n\n1. 일지(日支) 속궁합: 부부의 침실이자 내면을 상징하는 일지의 글자를 대조하여 육합, 삼합의 완벽한 융합부터 원진, 귀문, 충의 애증과 파국까지 적나라하게 분석합니다.\n2. 구궁 팔괘: 남녀의 타고난 본명성을 바탕으로, 부부 사이의 권력 구조(남극녀, 여극남 등)와 발현 타이밍을 도출합니다.\n3. 삼원갑자: 두 영혼이 속한 우주적 시대 배경을 대조하여 영혼의 파장이 근본적으로 닿아 있는지를 판별합니다."}
 ]
 
-# 🚨 [수정 완료] 당사주(고법) 엔진에 진짜 음력 월/일을 쏴주기 위해 파라미터 추가
 def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=None, apply_trad=False, lunar_m=None, unknown_time=False, real_lunar_m=1, real_lunar_d=1):
     bazi_raw = astro_res.get("bazi", {})
     
@@ -187,8 +186,8 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=No
             "inner": ghap.get_inner_compatibility(d_branch, p_day_branch)
         }
 
-    # 🚨 [수정 완료] 고법 엔진에 완벽한 파라미터(진짜 음력 날짜) 전송
-    classical_reading = clas.generate_classical_reading(bazi, yongshin_data, gender, real_lunar_m, real_lunar_d)
+    # 🚨 [버그 수정 완료] strength 파라미터를 추가하여 누락된 신강/신약 정보 맵핑
+    classical_reading = clas.generate_classical_reading(bazi, yongshin_data, strength, gender, real_lunar_m, real_lunar_d)
 
     metadata = {}
     terms_to_fetch = set(["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸", "子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥", "비견", "겁재", "식신", "상관", "편재", "정재", "편관", "정관", "편인", "정인", "공망"])
@@ -281,8 +280,6 @@ async def bazi_endpoint(request: Request):
         if timezone != 9:
             dt_input = dt_input - timedelta(hours=timezone) + timedelta(hours=9)
         
-        # 🚨 [수정 완료] 사용자가 양력으로 넣었든 음력으로 넣었든, 
-        # 달력을 강제로 돌려서 고법 엔진용 '진짜 음력 날짜'를 확보합니다.
         cal = KoreanLunarCalendar()
         if calendar_type in ["lunar", "lunar_leap"]:
             is_leap = (calendar_type == "lunar_leap")

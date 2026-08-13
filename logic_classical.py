@@ -41,20 +41,16 @@ class ClassicalEngine:
         if not element: return "-"
         return f"당신은 {season}에 태어난 {element}의 기상을 품고 있습니다. 모진 비바람이 불어도 내면에는 절대 꺾이지 않는 무서운 자립심과 끈질긴 생존력을 타고난 명식입니다."
 
-    # 🚨 [정통 고법 복원] 당사주 순차 연산 알고리즘
+    # 당사주 순차 연산 알고리즘
     def calculate_orthodox_dang_saju(self, year_branch: str, lunar_month: int, lunar_day: int, hour_branch: str) -> dict:
         branches = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
         if year_branch not in branches:
             return {p: {"name_clean": "-", "hanja_clean": "", "desc": "-"} for p in ["year", "month", "day", "hour"]}
 
-        # 1. 연성(초년): 띠(연지) 그대로
         y_idx = branches.index(year_branch)
-        # 2. 월성(청년): 연성 기준에서 음력 월수만큼 전진
         m_idx = (y_idx + lunar_month - 1) % 12
-        # 3. 일성(중년): 월성 기준에서 음력 일수만큼 전진
         d_idx = (m_idx + lunar_day - 1) % 12
         
-        # 4. 시성(말년): 일성 기준에서 시지 인덱스만큼 전진
         h_star_idx = None
         if hour_branch in branches:
             h_idx = branches.index(hour_branch)
@@ -76,7 +72,7 @@ class ClassicalEngine:
                 result[p] = {"name_clean": db_data["name"], "hanja_clean": db_data["hanja"], "desc": db_data["desc"]}
         return result
 
-    # 🚨 [정통 고법 복원] 납음오행 초년-말년 생극제화 스캐너
+    # 납음오행 상호작용 생극제화 스캐너
     def _get_napeum_interaction(self, y_napeum: str, h_napeum: str) -> list:
         if not y_napeum or not h_napeum or y_napeum == "-" or h_napeum == "-" or "모름" in h_napeum:
             return [{"title": "판별 불가", "hanja": "未詳", "text": "태어난 시간을 알 수 없어 초년과 말년의 납음오행 상호작용을 판별할 수 없습니다."}]
@@ -103,13 +99,13 @@ class ClassicalEngine:
             return [{"title": "상극(相剋) - 시극연", "hanja": "下剋上", "text": f"말년의 기운({h_elem})이 초년의 뿌리({y_elem})를 정면으로 치는 흉상입니다. 중말년에 이르러 주거지, 직업, 가치관이 180도 뒤바뀌는 대격변을 겪게 되며 낡은 껍질을 부수고 나오는 뼈아픈 혁신이 필요합니다."}]
         return []
 
-    # 🚨 [통합 렌더링]
-    def generate_classical_reading(self, formatted_bazi: dict, yongshin_data: dict, gender: str, lunar_month: int, lunar_day: int) -> list:
+    # 🚨 [통합 렌더링] 'str' object 오류 및 strength 연산 오류 완벽 패치
+    def generate_classical_reading(self, formatted_bazi: dict, yongshin_data: dict, strength_data: dict, gender: str, lunar_month: int, lunar_day: int) -> list:
         readings = []
         gender_title = "乾命 (건명 : 남성)" if gender == "M" else "坤命 (곤명 : 여성)"
 
-        # 1. 기질 및 조후 (신법/고법 공통)
-        yongshin_str = yongshin_data.get("yongshin", {}).get("yongshin", str(yongshin_data.get("yongshin", "-"))) if isinstance(yongshin_data, dict) else str(yongshin_data)
+        # 1. 기질 및 조후 (신법/고법 공통) - 파싱 에러 완전 차단
+        yongshin_str = yongshin_data.get("yongshin", "-")
         readings.append({
             "section": f"1. {gender_title} 사주 원국 기질 분석",
             "items": [
@@ -130,7 +126,7 @@ class ClassicalEngine:
             ]
         })
 
-        # 3. 납음오행 상호작용 (신규 이식)
+        # 3. 납음오행 상호작용
         y_napeum = formatted_bazi["year"].get("napeum", "-").split("(")[0]
         h_napeum = formatted_bazi["hour"].get("napeum", "-").split("(")[0]
         readings.append({
@@ -138,8 +134,8 @@ class ClassicalEngine:
             "items": self._get_napeum_interaction(y_napeum, h_napeum)
         })
 
-        # 4. 그릇 (봉황)
-        strength = yongshin_data.get("strength", {}).get("status", "") if isinstance(yongshin_data, dict) else ""
+        # 4. 그릇 (봉황) - 🚨 신강/신약 데이터를 정상적으로 전달받아 판독하도록 수정
+        strength = strength_data.get("status", "")
         if "신강" in strength or "극강" in strength:
             hero_items = [{"title": "압도적 주체성", "hanja": "事雖速心 非理不行", "text": "매사에 마음이 급하더라도 도리에 어긋나는 짓은 결코 하지 않는 위대한 신념을 가졌습니다. 운수가 뻗는 대운을 만나면 천금을 쥐고 천하를 호령할 명입니다."}]
         else:
