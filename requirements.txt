@@ -5,3 +5,4 @@ pydantic==2.3.0
 redis==5.0.0
 korean_lunar_calendar==0.3.1
 cachetools==5.3.3
+slowapi==0.1.9
