@@ -28,7 +28,7 @@ from core_mechanics import MechanicsEngine
 from dictionary import DictionaryEngine
 from logic_dynamics import DynamicsEngine
 from logic_fengshui import FengShuiEngine
-from logic_gunghap import GunghapEngine
+from logic_gunghap import UltimateGunghapEngine as GunghapEngine
 from logic_practical import PracticalEngine
 from logic_unse import UnseEngine
 from logic_yongshin import YongshinEngine
