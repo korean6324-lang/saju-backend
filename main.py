@@ -39,7 +39,6 @@ unse = UnseEngine()
 yong = YongshinEngine()
 clas = ClassicalEngine() 
 
-# 🚨 [수정 완료] 한국어 전용으로 경량화된 납음오행 DB
 NAPEUM_RICH_DESC = {
     "해중금": "바다 깊은 곳에 잠긴 보석. 겉으로 드러나지 않는 깊은 내공과 무한한 잠재력을 지니고 있습니다.",
     "노중화": "화로 속에서 타오르는 불꽃. 따뜻하고 보호받는 환경에서 은근한 끈기와 지성을 발휘합니다.",
@@ -75,14 +74,14 @@ NAPEUM_RICH_DESC = {
     "대해수": "모든 것을 삼키는 거대한 바다. 속을 알 수 없는 깊은 지혜와 모든 선악을 포용하는 압도적인 수용력이 있습니다."
 }
 
-# 🚨 [수정 완료] 다국어 FAQ 철거 및 단일 배열로 경량화
 FAQ_DB = [
     {"q": "대운수 수동 지정은 언제 사용하는 기능인가요?", "a": "명리학에서 대운(10년 주기의 운)이 바뀌는 나이는 태어난 날과 절기(節氣)의 거리를 계산하여 도출됩니다. 하지만 절기와 절기의 경계선(교운기)에 태어난 경우, 학파나 간명자의 관점에 따라 대운수를 1~2년 정도 당기거나 늦춰서 해석해야 할 때가 있습니다. 이 기능은 정해진 천문학적 대운수 대신, 스스로의 체감 운기에 맞춰 대운수를 강제로 보정할 수 있게 하는 상위 1% 전문가용 옵션입니다. 미입력 시 천문학 데이터에 기반해 자동으로 연산됩니다."},
     {"q": "고법(古法) 둔월법이란 무엇인가요?", "a": "현대 사주명리학(신법)은 무조건 태양의 궤도인 '24절기(입춘, 경칩 등)'를 기준으로 월주(태어난 달의 기둥)를 세웁니다. 반면, 과거의 고법(古法) 명리나 일부 특수 학파에서는 절기를 무시하고 오직 '순수 음력 달(月)'을 기준으로 월주를 세우는 방식을 사용하기도 합니다. '고법 둔월법'을 체크하고 음력 월을 지정하시면, 절기와 상관없이 강제로 해당 음력 월의 기운으로 사주 원국을 덮어씌워 간명하는 심층 비교 분석이 가능해집니다."},
     {"q": "마스터 엔진의 파트너 궁합은 일반 궁합과 무엇이 다른가요?", "a": "본 시스템의 궁합은 단순한 오행의 개수나 띠(연지)만 맞추는 가벼운 궁합이 아닙니다. 다음 3가지 핵심 엔진을 크로스체크하여 인연의 밑바닥까지 팩트폭행합니다.\n\n1. 일지(日支) 속궁합: 부부의 침실이자 내면을 상징하는 일지의 글자를 대조하여 육합, 삼합의 완벽한 융합부터 원진, 귀문, 충의 애증과 파국까지 적나라하게 분석합니다.\n2. 구궁 팔괘: 남녀의 타고난 본명성을 바탕으로, 부부 사이의 권력 구조(남극녀, 여극남 등)와 발현 타이밍을 도출합니다.\n3. 삼원갑자: 두 영혼이 속한 우주적 시대 배경을 대조하여 영혼의 파장이 근본적으로 닿아 있는지를 판별합니다."}
 ]
 
-def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=None, apply_trad=False, lunar_m=None, unknown_time=False):
+# 🚨 [수정 완료] 당사주(고법) 엔진에 진짜 음력 월/일을 쏴주기 위해 파라미터 추가
+def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=None, apply_trad=False, lunar_m=None, unknown_time=False, real_lunar_m=1, real_lunar_d=1):
     bazi_raw = astro_res.get("bazi", {})
     
     y_stem, y_branch = bazi_raw["year_pillar"][0], bazi_raw["year_pillar"][1]
@@ -122,7 +121,6 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=No
     strength = yong.determine_strength(bazi)
     yongshin_data = yong.determine_yongshin(bazi, strength)
 
-    # 🚨 [수정 완료] 엔진(logic_yongshin)이 이미 분리해준 name과 hanja를 프론트 규격에 맞춰 넘김
     geokguk["name_clean"] = geokguk.get("name", "")
     geokguk["hanja_clean"] = geokguk.get("hanja", "")
 
@@ -132,7 +130,6 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=No
     elements_imbalance = []
     for h in health_raw:
         if h["element"] != "종합":
-            # 🚨 [수정 완료] 텍스트 쪼개기(split) 완전 철거. 엔진이 내려준 status_code를 그대로 사용
             elements_imbalance.append({
                 "element": h["element"], 
                 "type": h.get("status_code", "양호"), 
@@ -141,9 +138,6 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=No
                 "desc": h["advice"]
             })
 
-    # 🚨 [수정 완료] 신살 및 흉액의 엔진 결과값을 수정 없이 패스(Pass)
-    # logic_dynamics.py 엔진에서 이미 name_clean, hanja_clean을 완벽하게 담아서 주므로
-    # main.py에서 불필요하게 다시 자르는 방해 로직을 전면 삭제했습니다.
     special_stars = dyn.scan_special_stars({"year": y_stem, "month": m_stem, "day": d_stem, "hour": h_stem}, {"year": y_branch, "month": m_branch, "day": d_branch, "hour": h_branch})
     disasters = dyn.scan_disasters(valid_branches)
 
@@ -193,11 +187,8 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=No
             "inner": ghap.get_inner_compatibility(d_branch, p_day_branch)
         }
 
-    classical_stars_branches = {"year": y_branch, "month": m_branch, "day": d_branch}
-    if not unknown_time: classical_stars_branches["hour"] = h_branch
-        
-    classical_stars = clas.get_four_pillars_stars(classical_stars_branches)
-    classical_reading = clas.generate_classical_reading(bazi, disasters, yongshin_data, gender)
+    # 🚨 [수정 완료] 고법 엔진에 완벽한 파라미터(진짜 음력 날짜) 전송
+    classical_reading = clas.generate_classical_reading(bazi, yongshin_data, gender, real_lunar_m, real_lunar_d)
 
     metadata = {}
     terms_to_fetch = set(["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸", "子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥", "비견", "겁재", "식신", "상관", "편재", "정재", "편관", "정관", "편인", "정인", "공망"])
@@ -250,7 +241,7 @@ def build_full_response(dt_kst, astro_res, gender, daewun_num=1, partner_info=No
         "napeum_reading": napeum_reading,
         "timeline": {"daewun": daewun_raw, "sewun": sewun_raw},
         "gunghap": gunghap_data,
-        "classical": {"stars": classical_stars, "reading": classical_reading}
+        "classical": {"reading": classical_reading}
     }
 
 
@@ -290,8 +281,10 @@ async def bazi_endpoint(request: Request):
         if timezone != 9:
             dt_input = dt_input - timedelta(hours=timezone) + timedelta(hours=9)
         
+        # 🚨 [수정 완료] 사용자가 양력으로 넣었든 음력으로 넣었든, 
+        # 달력을 강제로 돌려서 고법 엔진용 '진짜 음력 날짜'를 확보합니다.
+        cal = KoreanLunarCalendar()
         if calendar_type in ["lunar", "lunar_leap"]:
-            cal = KoreanLunarCalendar()
             is_leap = (calendar_type == "lunar_leap")
             if cal.setLunarDate(dt_input.year, dt_input.month, dt_input.day, is_leap):
                 dt_kst = datetime(cal.solarYear, cal.solarMonth, cal.solarDay, dt_input.hour, dt_input.minute)
@@ -299,6 +292,10 @@ async def bazi_endpoint(request: Request):
                 return {"status": "error", "message": "Invalid Lunar Date."}
         else:
             dt_kst = dt_input
+            cal.setSolarDate(dt_input.year, dt_input.month, dt_input.day)
+
+        real_lunar_m = cal.lunarMonth
+        real_lunar_d = cal.lunarDay
             
         astro_res = astro.calculate_bazi(dt_kst, gender, longitude, apply_true_solar, apply_yaja)
         
@@ -328,7 +325,7 @@ async def bazi_endpoint(request: Request):
                 
             partner_info = {"dt": partner_dt, "gender": p_gender, "longitude": p_lon, "unknown_time": p_unk_time}
 
-        final_result = build_full_response(dt_kst, astro_res, gender, daewun_num, partner_info, apply_trad, lunar_m, unknown_time)
+        final_result = build_full_response(dt_kst, astro_res, gender, daewun_num, partner_info, apply_trad, lunar_m, unknown_time, real_lunar_m, real_lunar_d)
 
         return final_result
 

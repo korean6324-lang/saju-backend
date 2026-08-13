@@ -2,48 +2,24 @@
 
 class ClassicalEngine:
     def __init__(self):
-        # 🚨 [수정 완료] 한국어 전용 12성(당사주) DB 및 한자/한글 완벽 분리 (JSON 정규화)
+        # 정규화된 한국어 전용 당사주 DB (이름, 한자, 설명 완벽 분리)
         self.dang_saju = {
-            "子": {"name": "천귀성", "hanja": "天貴星", "desc": "【특징】 부귀영화와 총명함을 관장하는 기운.\n【吉】 타고난 두뇌가 비상하여 학업과 관직에서 크게 두각을 나타내며 주변의 인덕이 따릅니다.\n【凶】 자만심과 우월감이 강해 타인을 얕잡아보기 쉬우며, 굽힐 줄 몰라 다 된 일에 스스로 재를 뿌릴 수 있습니다."},
-            "丑": {"name": "천액성", "hanja": "天厄星", "desc": "【특징】 고난과 인내, 대기만성의 기운.\n【吉】 어떠한 척박한 시련도 묵묵히 버텨내는 불굴의 의지가 있어 중말년에 이르러 거대한 성취를 이룹니다.\n【凶】 초중년에 원인 모를 잦은 질병(액운)이나 인간관계의 고초를 겪으며 심신이 고달플 수 있습니다."},
-            "寅": {"name": "천권성", "hanja": "天權星", "desc": "【특징】 권력과 통솔력을 상징하는 우두머리의 기운.\n【吉】 만인을 거느리는 카리스마와 리더십이 탁월하며, 관직이나 큰 사업에서 조직을 장악합니다.\n【凶】 독단적이고 타인의 밑에 있기를 거부하는 성정 탓에 주변과 잦은 마찰과 뼈아픈 구설수가 따릅니다."},
-            "卯": {"name": "천파성", "hanja": "天破星", "desc": "【특징】 파재(破財)와 특수 기술을 관장하는 기운.\n【吉】 일반적인 길보다는 정교한 손재주, 예술, 특수한 전문 기술 분야에서 자수성가로 크게 발복합니다.\n【凶】 모은 재물이 쉽게 흩어지거나 초년에 믿었던 인연과 뼈아픈 이별(破)을 겪는 등 굴곡이 있습니다."},
-            "辰": {"name": "천간성", "hanja": "天奸星", "desc": "【특징】 뛰어난 지략과 임기응변의 기운.\n【吉】 두뇌 회전이 빠르고 처세술이 능수능란하여, 어떠한 최악의 위기 상황에서도 기지를 발휘해 살아남는 수완가입니다.\n【凶】 지나치게 잔꾀를 부리다 제 꾀에 넘어가거나, 잦은 변덕과 변절로 인해 깊은 신뢰를 잃을 수 있습니다."},
-            "巳": {"name": "천문성", "hanja": "天文星", "desc": "【특징】 학문과 예술, 예리한 직관의 기운.\n【吉】 학자, 연구가, 예술가로서 천재성을 발휘하며 남다른 영감과 고결한 품격을 지니고 있습니다.\n【凶】 성정이 지나치게 예민하고 현실 감각이 떨어져, 대인관계에서 상처를 잘 받고 신경쇠약이나 고립에 주의해야 합니다."},
-            "午": {"name": "천복성", "hanja": "天福星", "desc": "【특징】 복록과 여유, 인덕을 상징하는 기운.\n【吉】 일생토록 의식주가 마르지 않고 귀인의 도움이 따르며, 대체로 풍파 없는 순탄하고 안락한 삶을 누립니다.\n【凶】 태생적인 풍족함에 취해 나태해지기 쉬우며, 거친 세상을 스스로 개척하려는 야성(투지)이 부족할 수 있습니다."},
-            "未": {"name": "천역성", "hanja": "天驛星", "desc": "【특징】 이동과 개척, 역마(驛馬)의 기운.\n【吉】 고향에 머물지 않고 넓은 세상(해외, 무역, 유통, 영업)으로 나아가 역동적으로 활동해야 갇혀있던 대운이 크게 열립니다.\n【凶】 한곳에 정착하지 못해 평생 삶의 피로도가 높으며, 초중년에는 심신이 고달프고 방황할 수 있습니다."},
-            "申": {"name": "천고성", "hanja": "天孤星", "desc": "【특징】 고독과 자립, 깊은 철학의 기운.\n【吉】 누구에게도 의존하지 않는 자립심이 극강하며, 홀로 탐구하는 종교, 철학, 연구 분야에서 일가를 이룹니다.\n【凶】 부모형제나 육친의 덕이 박하고, 군중 속에서도 뼈저린 고독감이나 우울감을 자주 느껴 마음의 병을 경계해야 합니다."},
-            "酉": {"name": "천인성", "hanja": "天刃星", "desc": "【특징】 날카로운 결단력과 수술수(칼)의 기운.\n【吉】 맺고 끊음이 칼처럼 확실하여 의료, 사법, 금융, 군경 등 예리함과 냉정함을 요하는 직업에서 대성합니다.\n【凶】 몸에 칼을 대는 수술수나 사고수가 잦으며, 날카로운 언행으로 본의 아니게 타인에게 상처를 주고 적을 만들기 쉽습니다."},
-            "戌": {"name": "천예성", "hanja": "天藝星", "desc": "【특징】 정교한 재주와 장인정신의 기운.\n【吉】 남들이 흉내 내지 못할 독창적인 손재주와 끈기를 지녔으며, 한 분야를 깊게 파고들어 예술가나 장인으로 존경받습니다.\n【凶】 자기만의 확고한 세계에 갇혀 이상과 현실의 괴리를 겪거나, 외골수 기질로 인해 타인과 원만하게 타협하지 못합니다."},
-            "亥": {"name": "천수성", "hanja": "天壽星", "desc": "【특징】 무병장수와 태평한 수용력의 기운.\n【吉】 성품이 온화하고 매사를 둥글게 수용하는 긍정성이 있어 무병장수하며, 말년에 이르러 큰 평안과 존경을 받습니다.\n【凶】 맺고 끊음이 약해 타인의 부탁을 거절하지 못하고 끌려다니기 쉬우며, 줏대 없는 태도로 결정적 기회를 놓칠 수 있습니다."}
+            "子": {"name": "천귀성", "hanja": "天貴星", "desc": "부귀영화와 총명함을 관장하는 기운. 타고난 두뇌가 비상하여 학업과 관직에서 두각을 나타내며 인덕이 따릅니다. 단, 자만심이 강해 타인을 얕잡아보기 쉬우니 겸손이 필수입니다."},
+            "丑": {"name": "천액성", "hanja": "天厄星", "desc": "고난과 인내, 대기만성의 기운. 척박한 시련도 묵묵히 버텨내는 불굴의 의지가 있어 중말년에 거대한 성취를 이룹니다. 초중년의 풍파와 마음고생을 피할 수 없습니다."},
+            "寅": {"name": "천권성", "hanja": "天權星", "desc": "권력과 통솔력을 상징하는 우두머리의 기운. 만인을 거느리는 카리스마가 탁월하여 조직을 장악합니다. 독단적인 성정 탓에 타인과의 마찰과 구설수가 잦습니다."},
+            "卯": {"name": "천파성", "hanja": "天破星", "desc": "파재(破財)와 특수 기술을 관장하는 기운. 정교한 손재주와 예술, 전문 기술로 자수성가합니다. 다만 모은 재물이 흩어지거나 믿었던 인연과 이별을 겪는 굴곡이 있습니다."},
+            "辰": {"name": "천간성", "hanja": "天奸星", "desc": "뛰어난 지략과 임기응변의 기운. 두뇌 회전이 빠르고 처세술이 능수능란하여 최악의 위기에서도 기지를 발휘합니다. 잦은 변덕과 잔꾀로 신뢰를 잃지 않도록 주의해야 합니다."},
+            "巳": {"name": "천문성", "hanja": "天文星", "desc": "학문과 예술, 예리한 직관의 기운. 학자나 예술가로서 천재성을 발휘하며 고결한 품격을 지닙니다. 성정이 지나치게 예민하여 상처를 잘 받고 신경쇠약에 걸리기 쉽습니다."},
+            "午": {"name": "천복성", "hanja": "天福星", "desc": "복록과 여유, 인덕을 상징하는 기운. 일생토록 의식주가 마르지 않고 귀인의 도움이 따르며 순탄합니다. 태생적 풍족함에 취해 나태해지고 투지가 부족해질 수 있습니다."},
+            "未": {"name": "천역성", "hanja": "天驛星", "desc": "이동과 개척, 역마(驛馬)의 기운. 고향을 떠나 넓은 세상(해외, 유통, 영업)으로 나아가야 대운이 크게 열립니다. 평생 한곳에 정착하지 못해 삶의 피로도가 매우 높습니다."},
+            "申": {"name": "천고성", "hanja": "天孤星", "desc": "고독과 자립, 깊은 철학의 기운. 누구에게도 의존하지 않는 자립심이 극강하여 연구, 종교, 철학 분야에서 일가를 이룹니다. 군중 속에서도 뼈저린 고독감을 자주 느끼게 됩니다."},
+            "酉": {"name": "천인성", "hanja": "天刃星", "desc": "날카로운 결단력과 수술수(칼)의 기운. 맺고 끊음이 확실하여 의료, 사법, 금융, 군경 등 예리한 직업에서 대성합니다. 몸에 칼을 대거나 예리한 언행으로 적을 만들기 쉽습니다."},
+            "戌": {"name": "천예성", "hanja": "天藝星", "desc": "정교한 재주와 장인정신의 기운. 남들이 흉내 내지 못할 독창성과 끈기로 한 분야를 깊게 파고들어 존경받습니다. 외골수 기질로 인해 타인과 원만하게 타협하기 어렵습니다."},
+            "亥": {"name": "천수성", "hanja": "天壽星", "desc": "무병장수와 태평한 수용력의 기운. 성품이 온화하고 매사를 둥글게 수용하여 무병장수하며 말년에 큰 평안을 얻습니다. 거절을 못 해 끌려다니거나 결정적 기회를 놓칠 수 있습니다."}
         }
-
-        # 🚨 [수정 완료] 한국어 단일 UI 텍스트 (다국어 분기 제거)
-        self.ui_texts = {
-            "title1": "1. {0} 사주 원국 (四柱 原局) 분석", "title2": "2. 총운 (總運) : 뼈를 깎는 시련과 찬란한 발복", "title3": "3. 琴瑟宮 (금슬궁 : 부부운 및 배우자 자리)", "title4": "4. 子宮 (자식궁 및 말년의 성취)", "title5": "5. 鳳凰 (봉황 : 인생관과 영웅의 그릇)",
-            "male": "乾命 (건명 : 남성)", "female": "坤命 (곤명 : 여성)", "unknown_time": "시간 모름", "unknown_time_desc": "태어난 시간을 알 수 없어 기운을 판별하지 않습니다.", "unknown_child": "時柱未詳", "unknown_child_desc": "태어난 시간을 알 수 없어 자식궁과 말년의 정확한 길흉을 판별하지 않습니다. 억지로 추론하여 신뢰도를 떨어뜨리지 않습니다.",
-            "nature": "기질 (氣質)", "johu": "조후 (調候)", 
-            "hero_1": "압도적 주체성", "hero_1_h": "事雖速心 非理不行", "hero_1_d": "매사에 마음이 아무리 급하고 서두르더라도, 도리와 이치에 어긋나는 비겁한 짓은 결코 행동에 옮기지 않는 위대한 신념을 가졌습니다. 운수가 뻗어 나가는 대운을 만나면 천금을 손에 쥐고 천하를 호령할 명입니다.",
-            "hero_2": "인내와 수용력", "hero_2_h": "外財入內", "hero_2_d": "자신을 낮추고 지독하게 인내하며 때를 기다리는 무서운 저력이 있습니다. 시기가 도래하면 밖의 거대한 재물들이 봇물 터지듯 쏟아져 들어옵니다. 혼탁한 세상에서 고독하게 땀 흘리는 고결한 영웅의 삶입니다."
-        }
-
-    def get_four_pillars_stars(self, branches_dict: dict) -> dict:
-        result = {}
-        t = self.ui_texts
-        for pillar, branch in branches_dict.items():
-            if branch == "-":
-                result[pillar] = {"name": t["unknown_time"], "hanja": "", "desc": t["unknown_time_desc"]}
-            else:
-                result[pillar] = self.dang_saju.get(branch, {"name": "-", "hanja": "-", "desc": "-"})
-        return result
 
     def _get_dynamic_johu_desc(self, yongshin_str: str) -> str:
-        """
-        🚨 [수정 완료] 용신의 오행(목,화,토,금,수)을 정밀 감지하여
-        명리학적 고증에 완벽하게 부합하는 5가지 맞춤형 통변을 동적으로 출력합니다.
-        """
         base_text = f"이 명식에 가장 시급하고 귀중한 수호 에너지는 [{yongshin_str}]입니다. "
-        
         if "목" in yongshin_str or "木" in yongshin_str:
             return base_text + "사주의 메마른 땅에 튼튼한 뿌리를 내리고 생명력을 불어넣는 귀중한 에너지입니다. 이 기운이 들어올 때 성장이 촉진되고 거대한 숲을 이루듯 번창하게 됩니다."
         elif "화" in yongshin_str or "火" in yongshin_str:
@@ -57,134 +33,118 @@ class ClassicalEngine:
         else:
             return base_text + "사주의 불균형을 해소하고 막힌 기운을 뚫어주는 절대적인 구원처가 되며, 이 기운이 들어올 때 비로소 삶의 조화가 완성됩니다."
 
-    def generate_classical_reading(self, formatted_bazi: dict, disasters_data: dict, yongshin_data: dict, gender: str) -> list:
-        t = self.ui_texts
-        readings = []
-        is_male = (gender == "M")
-        gender_title = t["male"] if is_male else t["female"]
-
-        yongshin_str = "-"
-        if isinstance(yongshin_data, dict):
-            y_val = yongshin_data.get("yongshin", "-")
-            if isinstance(y_val, dict):
-                yongshin_str = y_val.get("yongshin", str(y_val))
-            else:
-                yongshin_str = str(y_val)
-        elif isinstance(yongshin_data, str):
-            yongshin_str = yongshin_data
-        
-        day_stem = formatted_bazi["day"]["stem"]
-        month_branch = formatted_bazi["month"]["branch"]
-        nature_text = self._get_nature(day_stem, month_branch)
-        
-        # 동적 조후/용신 설명 호출
-        johu_text = self._get_dynamic_johu_desc(yongshin_str)
-        
-        readings.append({
-            "section": t["title1"].format(gender_title),
-            "items": [
-                {"title": t["nature"], "hanja": "", "text": nature_text},
-                {"title": t["johu"], "hanja": "", "text": johu_text}
-            ]
-        })
-
-        y_tg = formatted_bazi["year"]["branch_tg"]
-        m_tg = formatted_bazi["month"]["branch_tg"]
-        readings.append({"section": t["title2"], "items": self._get_chongwun(y_tg, m_tg)})
-
-        d_tg = formatted_bazi["day"]["branch_tg"]
-        readings.append({"section": t["title3"], "items": self._get_couple_wun(d_tg, is_male)})
-
-        h_tg = formatted_bazi["hour"]["branch_tg"]
-        if h_tg != "-":
-            readings.append({"section": t["title4"], "items": self._get_children_wun(h_tg, is_male)})
-        else:
-            readings.append({"section": t["title4"], "items": [{"title": t["unknown_time"], "hanja": t["unknown_child"], "text": t["unknown_child_desc"]}]})
-
-        strength = "-"
-        if isinstance(yongshin_data, dict):
-            strength_val = yongshin_data.get("strength", {})
-            if isinstance(strength_val, dict):
-                strength = strength_val.get("status", "")
-            else:
-                strength = str(strength_val)
-                
-        readings.append({"section": t["title5"], "items": self._get_phoenix(strength)})
-
-        return readings
-
     def _get_nature(self, d_stem: str, m_branch: str) -> str:
         s_map = {"寅":"초봄", "卯":"완연한 봄", "辰":"늦봄", "巳":"초여름", "午":"한여름", "未":"늦여름", "申":"초가을", "酉":"완연한 가을", "戌":"늦가을", "亥":"초겨울", "子":"한겨울", "丑":"꽁꽁 언 겨울"}
         e_map = {"甲":"우뚝 솟은 거목(巨木)", "乙":"강인한 생명력의 화초", "丙":"세상을 비추는 태양(太陽)", "丁":"어둠을 밝히는 용광로", "戊":"만물을 품는 거대한 산(大山)", "己":"비옥한 전답", "庚":"예리한 무쇠와 바위", "辛":"정교하게 세공된 보석", "壬":"거대한 바다", "癸":"대지를 적시는 생명수"}
-        fmt = "당신은 {0}에 태어난 {1}의 기상을 품고 있습니다. 모진 비바람이 불어도 내면에는 절대 꺾이지 않는 무서운 자립심과 끈질긴 생존력을 타고난 명식입니다."
-        
         season = s_map.get(m_branch, "")
         element = e_map.get(d_stem, "")
         if not element: return "-"
-        return fmt.format(season, element)
+        return f"당신은 {season}에 태어난 {element}의 기상을 품고 있습니다. 모진 비바람이 불어도 내면에는 절대 꺾이지 않는 무서운 자립심과 끈질긴 생존력을 타고난 명식입니다."
 
-    def _get_chongwun(self, y_tg: str, m_tg: str) -> list:
-        db = {
-            "y_bi": [{"title": "초년의 뼈아픈 자립", "hanja": "自手成家 (자수성가)", "text": "어린 시절의 외로움을 견디며 오직 자기 손으로 뼈 빠지게 일하여 빈손으로 가문을 일으키는 위대한 개척자의 운명입니다."}],
-            "y_jae": [{"title": "이른 경제적 눈썰미", "hanja": "早得財利 (조득재리)", "text": "초년에 재성이 들어있어 남들보다 일찍 현실 감각과 경제관념에 눈을 뜹니다. 소년기부터 돈의 흐름을 본능적으로 쫓는 수완가입니다."}],
-            "y_gwan": [{"title": "귀한 신분과 엄격함", "hanja": "身貴榮門 (신귀영문)", "text": "일찍부터 벼슬길(조직)에 뜻을 품고 반듯한 규율을 익히니 몸이 귀해집니다. 단, 관살이 무거우면 억압과 고난을 겪어 남들보다 일찍 철이 듭니다."}],
-            "y_else": [{"title": "조상의 강한 보호막", "hanja": "祖上恩德 (조상은덕)", "text": "조상의 지극한 은덕과 하늘이 내린 총명함을 품었습니다. 모진 풍파 속에서도 반드시 구원처가 나타나 위기를 넘기게 됩니다."}],
-            "m_sik": [{"title": "사회적 무기 (청중년)", "hanja": "一生藝術 (일생예술)", "text": "일생토록 뛰어난 언변이나 특수 기술을 지녀, 쇠를 만져 꽃을 피워내는 듯한 특별한 재주로 세상을 누비며 재물을 창출합니다."}],
-            "m_jae": [{"title": "사회적 무기 (청중년)", "hanja": "行商爲業 (행상위업)", "text": "반듯한 벼슬길보다는 상업과 사업, 유통에 투신하게 되며, 수많은 재물을 다루고 사람을 거느리는 거상(巨商)의 길을 걷게 됩니다."}],
-            "m_gwan": [{"title": "사회적 무기 (청중년)", "hanja": "出入貴家 (출입귀가)", "text": "명예를 중시하며, 귀하고 높은 집안과 거대한 조직을 거침없이 출입하며 자연스레 법도를 익히고 탄탄한 권력을 쥐게 됩니다."}],
-            "m_else": [{"title": "사회적 무기 (청중년)", "hanja": "東西奔走 (동서분주)", "text": "동서남북 사방으로 바쁘게 뛰어다니며 모진 풍파와 타인의 시기를 이겨내고, 땀 흘려 마침내 흔들리지 않는 굳건한 입지를 다집니다."}]
+    # 🚨 [정통 고법 복원] 당사주 순차 연산 알고리즘
+    def calculate_orthodox_dang_saju(self, year_branch: str, lunar_month: int, lunar_day: int, hour_branch: str) -> dict:
+        branches = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
+        if year_branch not in branches:
+            return {p: {"name_clean": "-", "hanja_clean": "", "desc": "-"} for p in ["year", "month", "day", "hour"]}
+
+        # 1. 연성(초년): 띠(연지) 그대로
+        y_idx = branches.index(year_branch)
+        # 2. 월성(청년): 연성 기준에서 음력 월수만큼 전진
+        m_idx = (y_idx + lunar_month - 1) % 12
+        # 3. 일성(중년): 월성 기준에서 음력 일수만큼 전진
+        d_idx = (m_idx + lunar_day - 1) % 12
+        
+        # 4. 시성(말년): 일성 기준에서 시지 인덱스만큼 전진
+        h_star_idx = None
+        if hour_branch in branches:
+            h_idx = branches.index(hour_branch)
+            h_star_idx = (d_idx + h_idx) % 12
+
+        stars = {
+            "year": branches[y_idx],
+            "month": branches[m_idx],
+            "day": branches[d_idx],
+            "hour": branches[h_star_idx] if h_star_idx is not None else "-"
         }
-        items = []
-        if "비견" in y_tg or "겁재" in y_tg: items.extend(db["y_bi"])
-        elif "재" in y_tg: items.extend(db["y_jae"])
-        elif "관" in y_tg: items.extend(db["y_gwan"])
-        else: items.extend(db["y_else"])
 
-        if "식" in m_tg or "상" in m_tg: items.extend(db["m_sik"])
-        elif "재" in m_tg: items.extend(db["m_jae"])
-        elif "관" in m_tg: items.extend(db["m_gwan"])
-        else: items.extend(db["m_else"])
-        return items
+        result = {}
+        for p, branch_key in stars.items():
+            if branch_key == "-":
+                result[p] = {"name_clean": "시간 모름", "hanja_clean": "時柱未詳", "desc": "태어난 시간을 알 수 없어 말년의 당사주를 판별하지 않습니다."}
+            else:
+                db_data = self.dang_saju[branch_key]
+                result[p] = {"name_clean": db_data["name"], "hanja_clean": db_data["hanja"], "desc": db_data["desc"]}
+        return result
 
-    def _get_couple_wun(self, d_tg: str, is_male: bool) -> list:
-        db = {
-            "m_bi": [{"title": "【凶】 배우자 극(剋) - 군비쟁재", "hanja": "剋妻之命", "text": "남자의 일지에 비견/겁재가 똬리를 틀어 소중한 아내(재성)를 무자비하게 억누르고 밀어내는 흉상입니다. 아내의 건강이 극도로 나빠지거나 뼈아픈 이별수를 겪기 쉽습니다. 평생토록 아내에게 철저히 져주고 헌신해야만 흉액을 면할 수 있습니다."}],
-            "m_jae": [{"title": "【吉】 최고의 내조 - 현처득재", "hanja": "賢妻得財", "text": "남자의 일지에 아내를 뜻하는 재성(財星)이 제자리에 바르게 앉아 있는 최고의 길상입니다. 현명하고 내조가 뛰어난 아내를 맞이하여 집안이 평안해지며, 부부가 합심하여 거대한 부를 축적하는 완벽한 금슬궁입니다."}],
-            "m_sik": [{"title": "【吉】 처가 발복 - 식상생재", "hanja": "妻家發福", "text": "일지의 식상이 재성(아내)을 끊임없이 생조해 줍니다. 남편이 아내를 끔찍이 아끼는 애처가가 되며, 처가와 아내의 덕으로 본인의 재물과 명예까지 크게 발복하게 되는 아름다운 인연입니다."}],
-            "m_else": [{"title": "【무난】 모성애적 인연", "hanja": "母性夫婦", "text": "아내가 남편을 쥐어잡기보다는 어머니처럼 남편의 모든 것을 품어주고 희생하는 애틋한 인연입니다. 아내의 깊은 은덕을 당연하게 여기지 말고 뼈저리게 감사해야 해로할 수 있습니다."}],
-            "f_sik": [{"title": "【극凶】 배우자 극(剋) - 식상견관", "hanja": "剋夫之命", "text": "여자의 일지에 남편(관성)을 무자비하게 쳐내는 식신/상관의 칼날이 도사리고 있습니다. 남편을 무시하게 되거나, 남편의 기가 꺾여 무능해지거나 가정이 파탄 날 수 있는 치명적 흉상입니다. 본인 스스로 바깥 활동을 강하게 하여 살기를 빼내야만(업상대체) 가정이 유지됩니다."}],
-            "f_gwan": [{"title": "【吉】 든든한 울타리 - 부부상애", "hanja": "夫婦相愛", "text": "여자의 일지에 남편을 뜻하는 관성(官星)이 제자리에 바르게 앉았습니다. 반듯하고 능력 있는 남편의 그늘 아래서 평생토록 든든한 보호를 받으며 귀한 대접을 누리고 살아가는 훌륭한 길상입니다."}],
-            "f_jae": [{"title": "【吉】 남편 발복 - 재생관", "hanja": "內助發福", "text": "일지의 재성이 관성(남편)의 권위를 하늘 끝까지 올려줍니다. 본인의 뛰어난 내조, 정보력, 경제력으로 남편을 크게 출세시키는 훌륭한 안주인의 명식으로 집안의 부와 명예가 모두 올라갑니다."}],
-            "f_else": [{"title": "【주의】 동업자적 부부", "hanja": "雙金相敵", "text": "남편과 동등한 위치에서 서로 굽히지 않는 자존심 싸움이 빈발합니다. 부부가 서로를 소유물이 아닌 대등한 전우이자 비즈니스 파트너로 대우하고 뼈를 깎는 배려를 해야만 흉을 면합니다."}]
-        }
-        if is_male:
-            if "비견" in d_tg or "겁재" in d_tg: return db["m_bi"]
-            elif "재" in d_tg: return db["m_jae"]
-            elif "식" in d_tg or "상" in d_tg: return db["m_sik"]
-            else: return db["m_else"]
-        else:
-            if "식" in d_tg or "상" in d_tg: return db["f_sik"]
-            elif "관" in d_tg: return db["f_gwan"]
-            elif "재" in d_tg: return db["f_jae"]
-            else: return db["f_else"]
+    # 🚨 [정통 고법 복원] 납음오행 초년-말년 생극제화 스캐너
+    def _get_napeum_interaction(self, y_napeum: str, h_napeum: str) -> list:
+        if not y_napeum or not h_napeum or y_napeum == "-" or h_napeum == "-" or "모름" in h_napeum:
+            return [{"title": "판별 불가", "hanja": "未詳", "text": "태어난 시간을 알 수 없어 초년과 말년의 납음오행 상호작용을 판별할 수 없습니다."}]
 
-    def _get_children_wun(self, h_tg: str, is_male: bool) -> list:
-        db = {
-            "m_sik": [{"title": "【주의】 만년 독립", "hanja": "晩年獨立", "text": "남성의 말년 자식궁에 자식(관성)을 밀어내는 기운(식상)이 강하게 앉아 있습니다. 자식과 일찍 떨어져 지내거나 자식 덕을 크게 보기 어렵습니다. 자식에게 섣불리 재산을 넘기지 말고 철저히 자립해야 노후가 평안합니다."}],
-            "m_else": [{"title": "【吉】 자손 번창", "hanja": "時上福星", "text": "거친 험사가 모두 지나가고 말년 자식궁에 복을 내리는 별이 앉았습니다. 자손들이 평탄하게 번성하고 안락함을 누리며, 백발이 되어서 태평한 봄바람을 맞습니다."}],
-            "f_in": [{"title": "【주의】 만년 독립 (도식)", "hanja": "晩年獨立", "text": "여성의 말년 자식궁에 자식(식상)의 밥그릇을 엎어버리는 기운(인성)이 강하게 똬리를 틀고 있습니다. 자식 농사에 남모를 애환이나 고초가 따를 수 있으니, 과도한 집착을 내려놓고 스스로 노후를 개척해야 합니다."}],
-            "f_else": [{"title": "【吉】 양전옥토", "hanja": "良田沃土", "text": "자식궁이 튼튼하게 생조되어 있어, 내가 낳은 자손들이 큰 인물로 반듯하게 성장합니다. 말년에 자식들의 극진한 효도와 봉양으로 깊은 안락함과 평안 누립니다."}]
-        }
-        if is_male:
-            if "식" in h_tg or "상" in h_tg: return db["m_sik"]
-            else: return db["m_else"]
-        else:
-            if "인" in h_tg: return db["f_in"]
-            else: return db["f_else"]
+        y_elem = y_napeum[-1]
+        h_elem = h_napeum[-1]
+        
+        valid_elems = ["목", "화", "토", "금", "수"]
+        if y_elem not in valid_elems or h_elem not in valid_elems:
+            return [{"title": "판별 불가", "hanja": "未詳", "text": "납음오행 정보가 부족하여 상호작용을 판별할 수 없습니다."}]
 
-    def _get_phoenix(self, strength: str) -> list:
-        t = self.ui_texts
+        generates = {"목":"화", "화":"토", "토":"금", "금":"수", "수":"목"}
+        overcomes = {"목":"토", "토":"수", "수":"화", "화":"금", "금":"목"}
+
+        if y_elem == h_elem:
+            return [{"title": "비화(比和) - 초지일관", "hanja": "初志一貫", "text": f"초년({y_elem})과 말년({h_elem})의 파동이 동일합니다. 평생토록 기운이 흔들리지 않으며, 한 분야를 고집스럽게 파고들어 일가를 이룹니다. 기복 없이 굳건한 생을 누립니다."}]
+        elif generates[y_elem] == h_elem:
+            return [{"title": "상생(相生) - 연생시", "hanja": "根生果", "text": f"초년의 뿌리({y_elem})가 말년의 성과({h_elem})를 생(生)하는 대길의 형국입니다. 조상의 은덕과 젊은 시절의 땀방울이 노후에 이르러 거대한 부와 번창으로 찬란하게 만개합니다."}]
+        elif generates[h_elem] == y_elem:
+            return [{"title": "상생(相生) - 시생연", "hanja": "果生根", "text": f"말년의 기운({h_elem})이 초년의 뿌리({y_elem})를 다시 윤택하게 돕는 형국입니다. 스스로 일군 말년의 영광과 자손의 성공이 오히려 가문을 크게 빛내고 명예를 드높입니다."}]
+        elif overcomes[y_elem] == h_elem:
+            return [{"title": "상극(相剋) - 연극시", "hanja": "先勝後憂", "text": f"초년의 강한 기운({y_elem})이 말년의 흉({h_elem})을 통제하고 다스리는 형국입니다. 중말년에 찾아오는 위기나 방황을 젊은 시절 다져놓은 탄탄한 자산과 인맥으로 완벽하게 제압해 냅니다."}]
+        elif overcomes[h_elem] == y_elem:
+            return [{"title": "상극(相剋) - 시극연", "hanja": "下剋上", "text": f"말년의 기운({h_elem})이 초년의 뿌리({y_elem})를 정면으로 치는 흉상입니다. 중말년에 이르러 주거지, 직업, 가치관이 180도 뒤바뀌는 대격변을 겪게 되며 낡은 껍질을 부수고 나오는 뼈아픈 혁신이 필요합니다."}]
+        return []
+
+    # 🚨 [통합 렌더링]
+    def generate_classical_reading(self, formatted_bazi: dict, yongshin_data: dict, gender: str, lunar_month: int, lunar_day: int) -> list:
+        readings = []
+        gender_title = "乾命 (건명 : 남성)" if gender == "M" else "坤命 (곤명 : 여성)"
+
+        # 1. 기질 및 조후 (신법/고법 공통)
+        yongshin_str = yongshin_data.get("yongshin", {}).get("yongshin", str(yongshin_data.get("yongshin", "-"))) if isinstance(yongshin_data, dict) else str(yongshin_data)
+        readings.append({
+            "section": f"1. {gender_title} 사주 원국 기질 분석",
+            "items": [
+                {"title": "기질 (氣質)", "hanja": "", "text": self._get_nature(formatted_bazi["day"]["stem"], formatted_bazi["month"]["branch"])},
+                {"title": "조후 (調候)", "hanja": "", "text": self._get_dynamic_johu_desc(yongshin_str)}
+            ]
+        })
+
+        # 2. 당사주 (정통 순차 연산 적용)
+        ds = self.calculate_orthodox_dang_saju(formatted_bazi["year"]["branch"], lunar_month, lunar_day, formatted_bazi["hour"]["branch"])
+        readings.append({
+            "section": "2. 당사주(唐四柱) 인생 사계절 흐름",
+            "items": [
+                {"title": "초년 (전생과 조상궁)", "hanja": ds["year"]["hanja_clean"], "text": f"[{ds['year']['name_clean']}] {ds['year']['desc']}"},
+                {"title": "청년 (부모와 직업궁)", "hanja": ds["month"]["hanja_clean"], "text": f"[{ds['month']['name_clean']}] {ds['month']['desc']}"},
+                {"title": "중년 (본인과 부부궁)", "hanja": ds["day"]["hanja_clean"], "text": f"[{ds['day']['name_clean']}] {ds['day']['desc']}"},
+                {"title": "말년 (자식과 노후궁)", "hanja": ds["hour"]["hanja_clean"], "text": f"[{ds['hour']['name_clean']}] {ds['hour']['desc']}"}
+            ]
+        })
+
+        # 3. 납음오행 상호작용 (신규 이식)
+        y_napeum = formatted_bazi["year"].get("napeum", "-").split("(")[0]
+        h_napeum = formatted_bazi["hour"].get("napeum", "-").split("(")[0]
+        readings.append({
+            "section": "3. 납음오행(納音五行) 초말년 생극제화",
+            "items": self._get_napeum_interaction(y_napeum, h_napeum)
+        })
+
+        # 4. 그릇 (봉황)
+        strength = yongshin_data.get("strength", {}).get("status", "") if isinstance(yongshin_data, dict) else ""
         if "신강" in strength or "극강" in strength:
-            return [{"title": t["hero_1"], "hanja": t["hero_1_h"], "text": t["hero_1_d"]}]
+            hero_items = [{"title": "압도적 주체성", "hanja": "事雖速心 非理不行", "text": "매사에 마음이 급하더라도 도리에 어긋나는 짓은 결코 하지 않는 위대한 신념을 가졌습니다. 운수가 뻗는 대운을 만나면 천금을 쥐고 천하를 호령할 명입니다."}]
         else:
-            return [{"title": t["hero_2"], "hanja": t["hero_2_h"], "text": t["hero_2_d"]}]
+            hero_items = [{"title": "인내와 수용력", "hanja": "外財入內", "text": "자신을 낮추고 지독하게 인내하며 때를 기다리는 저력이 있습니다. 시기가 도래하면 밖의 거대한 재물들이 봇물 터지듯 들어오는 고결한 영웅의 삶입니다."}]
+        
+        readings.append({"section": "4. 鳳凰 (봉황 : 인생관과 영웅의 그릇)", "items": hero_items})
+
+        return readings
