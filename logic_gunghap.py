@@ -1,348 +1,689 @@
-class UltimateGunghapEngine:
-    def __init__(self):
-        # 🚨 [작업 1] 본명성 도출을 위한 별자리 기초 DB 복구
-        self.stars = {
-            1: "일백수성(一白水星)", 2: "이흑토성(二黑土星)", 3: "삼벽목성(三碧木星)",
-            4: "사록목성(四綠木星)", 5: "오황토성(五黃土星)", 6: "육백금성(六白金星)",
-            7: "칠적금성(七赤金星)", 8: "팔백토성(八白土星)", 9: "구자화성(九紫火星)"
-        }
+'use client';
 
-        # ==========================================
-        # [데이터 통합 완료] 64구궁팔괘 매트릭스 DB (원본 100% 보존)
-        # ==========================================
-        self.gugung_matrix = {
-            "1_1": {"status": "복위(伏位)", "classical": "輔弼知是半兒郞", "desc": "감궁(1) 남자와 감궁(1) 여자가 만나 보필성의 잔잔한 기운을 나눕니다. 평범하고 조용한 가문을 이어가는 무해무덕(無害無德)한 인연입니다."},
-            "1_2": {"status": "절명(絶命)", "classical": "破軍破財孤孀", "desc": "감궁(1) 남자와 곤궁(2) 여자가 만나 서로의 명줄을 끊어내는 극흉 결합입니다. 질병이 끊이지 않고 재물이 흩어지는 뼈아픈 파국을 경고합니다."},
-            "1_3": {"status": "천의(天醫)", "classical": "巨三郞", "desc": "감궁(1) 남자와 진궁(3) 여자가 만나 거문성의 치유를 얻습니다. 고질병이 낫고 부동산과 재물이 태산처럼 쌓이는 대길(大吉)의 조합입니다."},
-            "1_4": {"status": "생기(生氣)", "classical": "貪生五子", "desc": "감궁(1) 남자와 손궁(4) 여자가 만나 탐랑성의 강력한 생명력을 품습니다. 맨손으로 천금을 일구며, 자손이 번창하는 대길의 인연입니다."},
-            "1_6": {"status": "육살(六殺)", "classical": "文曲水星僅一子", "desc": "감궁(1) 남자와 건궁(6) 여자가 만나 문곡성의 음란하고 패악한 기운에 휩쓸립니다. 이성 문제로 가산을 탕진하고 정서적 파멸을 맞이합니다."},
-            "1_7": {"status": "화해(禍害)", "classical": "祿存土宿人遭殃", "desc": "감궁(1) 남자와 태궁(7) 여자가 만나 녹존성의 시비와 관재구설에 휘말립니다. 사소한 다툼이 소송으로 번지는 피로한 흉연(凶緣)입니다."},
-            "1_8": {"status": "오귀(五鬼)", "classical": "廉貞獨火鬼兩箇", "desc": "감궁(1) 남자와 간궁(8) 여자가 만나 염정성의 화마(火魔)를 부릅니다. 불화가 끊이지 않고 일순간에 파산할 수 있는 위태로운 결합입니다."},
-            "1_9": {"status": "연년(延年)", "classical": "武曲金星四子强", "desc": "감궁(1) 남자와 이궁(9) 여자가 만나 무곡성의 굳건한 백년해로를 약속합니다. 재물이 불어나고 부귀쌍전(富貴雙全)을 누립니다."},
-            "2_1": {"status": "절명(絶命)", "classical": "破軍破財孤孀", "desc": "곤궁(2) 남자와 감궁(1) 여자가 만나 파군성의 처참한 파산을 부릅니다. 기운이 충돌하여 가세가 기울고 수명이 꺾일 흉상입니다."},
-            "2_2": {"status": "복위(伏位)", "classical": "輔弼知是半兒郞", "desc": "곤궁(2) 남자와 곤궁(2) 여자가 만나 보필성의 고요한 기운이 겹칩니다. 치명적인 재앙은 피하나 기운이 정체되어 건조한 관계로 평생을 보냅니다."},
-            "2_3": {"status": "화해(禍害)", "classical": "祿存土宿人遭殃", "desc": "곤궁(2) 남자와 진궁(3) 여자가 만나 녹존성의 재앙을 입습니다. 믿었던 이에게 배신당하며 소송으로 영혼이 피폐해집니다."},
-            "2_4": {"status": "오귀(五鬼)", "classical": "廉貞獨火鬼兩箇", "desc": "곤궁(2) 남자와 손궁(4) 여자가 만나 염정성의 흉액을 일으킵니다. 집안에 흉사가 겹치고 패륜하는 자손을 두어 눈물을 흘릴 수 있습니다."},
-            "2_6": {"status": "천의(天醫)", "classical": "巨三郞", "desc": "곤궁(2) 남자와 건궁(6) 여자가 만나 거문성의 축복을 받아 천의무봉의 가정을 이룹니다. 가산이 폭발적으로 늘고 무병장수합니다."},
-            "2_7": {"status": "연년(延年)", "classical": "武曲金星四子强", "desc": "곤궁(2) 남자와 태궁(7) 여자가 만나 무곡성의 강인한 인연을 맺습니다. 하늘이 맺어준 짝으로 재물과 권력이 당대에 마르지 않습니다."},
-            "2_8": {"status": "생기(生氣)", "classical": "貪生五子", "desc": "곤궁(2) 남자와 간궁(8) 여자가 만나 탐랑성의 폭발적인 생명력을 잉태합니다. 기어코 자수성가하여 가문의 이름을 천하에 떨칩니다."},
-            "2_9": {"status": "육살(六殺)", "classical": "文曲水星僅一子", "desc": "곤궁(2) 남자와 이궁(9) 여자가 만나 문곡성의 피폐한 연분을 맺습니다. 속으로는 불륜과 향락으로 멍들어 집안 기둥이 뽑히는 파국입니다."},
-            "3_1": {"status": "천의(天醫)", "classical": "巨三郞", "desc": "진궁(3) 남자와 감궁(1) 여자가 만나 거문성의 치유를 봅니다. 가세가 일일신 우일신 발전하고 수명이 길어집니다."},
-            "3_2": {"status": "화해(禍害)", "classical": "祿存土宿人遭殃", "desc": "진궁(3) 남자와 곤궁(2) 여자가 만나 녹존성의 파재를 몰고 옵니다. 벌어놓은 재물마저 밑빠진 독에 물 붓듯 흩어지는 고단한 결합입니다."},
-            "3_3": {"status": "복위(伏位)", "classical": "輔弼知是半兒郞", "desc": "진궁(3) 남자와 진궁(3) 여자가 만나 보필성의 기운으로 안정적입니다. 큰 욕심 없이 평탄하고 무던하게 살아가는 무해한 인연입니다."},
-            "3_4": {"status": "연년(延年)", "classical": "武曲金星四子强", "desc": "진궁(3) 남자와 손궁(4) 여자가 만나 무곡성의 뿌리를 내립니다. 폭풍우에도 꺾이지 않는 튼튼한 가문을 형성하며 재물이 끊이지 않습니다."},
-            "3_6": {"status": "오귀(五鬼)", "classical": "廉貞獨火鬼兩箇", "desc": "진궁(3) 남자와 건궁(6) 여자가 만나 염정성의 피바람을 몹니다. 부부간 증오가 극에 달하고 참사나 중병에 걸릴 극흉의 조합입니다."},
-            "3_7": {"status": "절명(絶命)", "classical": "破軍破財孤孀", "desc": "진궁(3) 남자와 태궁(7) 여자가 만나 파군성의 칼부림에 희생됩니다. 질병, 파산, 이별의 3대 액운을 피할 수 없는 흉상입니다."},
-            "3_8": {"status": "육살(六殺)", "classical": "文曲水星僅一子", "desc": "진궁(3) 남자와 간궁(8) 여자가 만나 문곡성의 진흙탕에 빠집니다. 재물이 무너지고 외도나 향락으로 상처와 원한만 남게 됩니다."},
-            "3_9": {"status": "생기(生氣)", "classical": "貪生五子", "desc": "진궁(3) 남자와 이궁(9) 여자가 만나 탐랑성의 활력을 얻습니다. 집안이 맹렬하게 일어서며 천하에 부러울 것이 없는 가문이 됩니다."},
-            "4_1": {"status": "생기(生氣)", "classical": "貪生五子", "desc": "손궁(4) 남자와 감궁(1) 여자가 만나 탐랑성의 막강한 창조력을 받습니다. 재산이 눈덩이처럼 불어나 부귀쌍전하는 최상길의 궁합입니다."},
-            "4_2": {"status": "오귀(五鬼)", "classical": "廉貞獨火鬼兩箇", "desc": "손궁(4) 남자와 곤궁(2) 여자가 만나 염정성의 화마에 휩싸입니다. 화재, 구설, 도난이 끊이지 않아 재물이 흔적 없이 사라집니다."},
-            "4_3": {"status": "연년(延年)", "classical": "武曲金星四子强", "desc": "손궁(4) 남자와 진궁(3) 여자가 만나 무곡성의 질긴 인연을 맺습니다. 조화롭게 부를 쌓고 튼튼한 가문을 닦아 명예를 누립니다."},
-            "4_4": {"status": "복위(伏位)", "classical": "輔弼知是半兒郞", "desc": "손궁(4) 남자와 손궁(4) 여자가 만나 보필성의 안정을 취합니다. 뜨거운 불꽃은 없어도 평생 이별 없이 조용한 가정을 지킵니다."},
-            "4_6": {"status": "화해(禍害)", "classical": "祿存土宿人遭殃", "desc": "손궁(4) 남자와 건궁(6) 여자가 만나 녹존성의 상처를 입습니다. 부인의 기에 눌려 남편이 기를 펴지 못하며 관재구설로 속을 끓입니다."},
-            "4_7": {"status": "육살(六殺)", "classical": "文曲水星僅一子", "desc": "손궁(4) 남자와 태궁(7) 여자가 만나 문곡성의 문란한 풍파를 겪습니다. 부부궁에 균열이 가고 재물 손실로 육체가 병드는 흉악한 늪입니다."},
-            "4_8": {"status": "절명(絶命)", "classical": "破軍破財孤孀", "desc": "손궁(4) 남자와 간궁(8) 여자가 만나 파군성의 최악의 파멸을 맞습니다. 수명을 깎아 먹어 비참하고 고독하게 끝을 맺는 극흉살입니다."},
-            "4_9": {"status": "천의(天醫)", "classical": "巨三郞", "desc": "손궁(4) 남자와 이궁(9) 여자가 만나 거문성의 치유와 발복을 낳습니다. 가산을 크게 일으키고 잔병 없이 천수를 누리는 으뜸 궁합입니다."},
-            "6_1": {"status": "육살(六殺)", "classical": "文曲水星僅一子", "desc": "건궁(6) 남자와 감궁(1) 여자가 만나 문곡성의 음란하고 패악한 늪에 빠집니다. 주색잡기와 사치로 가산을 탕진하고 자손이 흩어지는 흉연입니다."},
-            "6_2": {"status": "천의(天醫)", "classical": "巨三郞", "desc": "건궁(6) 남자와 곤궁(2) 여자가 만나 거문성의 찬란한 축복을 얻습니다. 가문이 번창하고 앓던 병마도 물러가 무병장수하는 대길의 명입니다."},
-            "6_3": {"status": "오귀(五鬼)", "classical": "廉貞獨火鬼兩箇", "desc": "건궁(6) 남자와 진궁(3) 여자가 만나 염정성의 독기를 부릅니다. 거대한 끔찍한 불화가 일어나며 참사가 줄을 잇는 위태로운 결합입니다."},
-            "6_4": {"status": "화해(禍害)", "classical": "祿存土宿人遭殃", "desc": "건궁(6) 남자와 손궁(4) 여자가 만나 녹존성의 지독한 구설에 휘말립니다. 재물은 뿔뿔이 흩어지고 잦은 다툼으로 수명이 줄어듭니다."},
-            "6_6": {"status": "복위(伏位)", "classical": "輔弼知是半兒郞", "desc": "건궁(6) 남자와 건궁(6) 여자가 만나 보필성의 단단하고 고요한 기운을 나눕니다. 철옹성처럼 풍파를 막으나 자손 운이 다소 약할 수 있습니다."},
-            "6_7": {"status": "생기(生氣)", "classical": "貪生五子", "desc": "건궁(6) 남자와 태궁(7) 여자가 만나 탐랑성의 막강한 창조력을 폭발시킵니다. 막대한 부를 쌓고 걸출한 자손을 거느려 태평성대입니다."},
-            "6_8": {"status": "연년(延年)", "classical": "武曲金星四子强", "desc": "건궁(6) 남자와 간궁(8) 여자가 만나 무곡성의 백년해로를 약속합니다. 흔들림 없는 자산과 후계자가 끊이지 않는 길상입니다."},
-            "6_9": {"status": "절명(絶命)", "classical": "破軍破財孤孀", "desc": "건궁(6) 남자와 이궁(9) 여자가 만나 파군성의 처참한 파멸을 맞습니다. 용광로 불길에 녹아내리듯 뼈아픈 파산과 단명이 기다립니다."},
-            "7_1": {"status": "화해(禍害)", "classical": "祿存土宿人遭殃", "desc": "태궁(7) 남자와 감궁(1) 여자가 만나 녹존성의 시비와 소송을 부릅니다. 아무리 벌어도 재물이 줄줄 새어나가고 원망이 쌓입니다."},
-            "7_2": {"status": "연년(延年)", "classical": "武曲金星四子强", "desc": "태궁(7) 남자와 곤궁(2) 여자가 만나 무곡성의 영광을 지킵니다. 부부의 애정이 단단하며 만금과 무병장수를 누립니다."},
-            "7_3": {"status": "절명(絶命)", "classical": "破軍破財孤孀", "desc": "태궁(7) 남자와 진궁(3) 여자가 만나 파군성의 피바람에 휩쓸립니다. 생명줄을 재촉하여 패가망신하고 종국엔 고독해집니다."},
-            "7_4": {"status": "육살(六殺)", "classical": "文曲水星僅一子", "desc": "태궁(7) 남자와 손궁(4) 여자가 만나 문곡성의 피폐한 연분을 맺습니다. 외도와 향락으로 영혼과 재물이 병드는 흉연입니다."},
-            "7_6": {"status": "생기(生氣)", "classical": "貪生五子", "desc": "태궁(7) 남자와 건궁(6) 여자가 만나 탐랑성의 경이로운 생명력을 잉태합니다. 폭발적인 재산 증식과 자손의 번창을 하늘이 보증합니다."},
-            "7_7": {"status": "복위(伏位)", "classical": "輔弼知是半兒郞", "desc": "태궁(7) 남자와 태궁(7) 여자가 만나 보필성의 호수를 이룹니다. 극적인 부의 요동은 없으나 무던하게 생을 지켜가는 동반자입니다."},
-            "7_8": {"status": "천의(天醫)", "classical": "巨三郞", "desc": "태궁(7) 남자와 간궁(8) 여자가 만나 거문성의 완벽한 안식을 받습니다. 병치레 없이 천수를 누리며 귀한 자식농사에 대성합니다."},
-            "7_9": {"status": "오귀(五鬼)", "classical": "廉貞獨火鬼兩箇", "desc": "태궁(7) 남자와 이궁(9) 여자가 만나 염정성의 미쳐 날뛰는 불귀신을 마주합니다. 끔찍한 사고와 갈등으로 집안이 잿더미가 됩니다."},
-            "8_1": {"status": "오귀(五鬼)", "classical": "廉貞獨火鬼兩箇", "desc": "간궁(8) 남자와 감궁(1) 여자가 만나 염정성의 흉포한 화마에 휩싸입니다. 파산과 재난이 줄을 이으며 가족이 뿔뿔이 흩어집니다."},
-            "8_2": {"status": "생기(生氣)", "classical": "貪生五子", "desc": "간궁(8) 남자와 곤궁(2) 여자가 만나 탐랑성의 눈부신 부활을 맞이합니다. 막대한 부를 일구며 자손이 천하를 호령합니다."},
-            "8_3": {"status": "육살(六殺)", "classical": "文曲水星僅一子", "desc": "간궁(8) 남자와 진궁(3) 여자가 만나 문곡성의 타락한 결말을 봅니다. 지나친 욕망으로 집안을 망치고 자손의 맥이 끊깁니다."},
-            "8_4": {"status": "절명(絶命)", "classical": "破軍破財孤孀", "desc": "간궁(8) 남자와 손궁(4) 여자가 만나 파군성의 단절을 맞이합니다. 재물은 박살 나고 수명을 깎아 비참하고 고독하게 끝을 맺습니다."},
-            "8_6": {"status": "연년(延年)", "classical": "武曲金星四子强", "desc": "간궁(8) 남자와 건궁(6) 여자가 만나 무곡성의 철옹성을 세웁니다. 변치 않는 애정으로 부귀영화를 쥐고 훌륭한 자손을 봅니다."},
-            "8_7": {"status": "천의(天醫)", "classical": "巨三郞", "desc": "간궁(8) 남자와 태궁(7) 여자가 만나 거문성의 융성함을 얻습니다. 몸과 마음의 상처가 낫고 거대한 자산과 다복한 자녀를 얻습니다."},
-            "8_8": {"status": "복위(伏位)", "classical": "輔弼知是半兒郞", "desc": "간궁(8) 남자와 간궁(8) 여자가 만나 보필성의 무거운 안정감을 나눕니다. 극적인 횡재수는 없어도 흔들림 없이 가문을 이어갑니다."},
-            "8_9": {"status": "화해(禍害)", "classical": "祿存土宿人遭殃", "desc": "간궁(8) 남자와 이궁(9) 여자가 만나 녹존성의 헛된 수고를 겪습니다. 겉보기만 상생일 뿐 관재구설과 배신으로 피땀 흘린 재산을 잃습니다."},
-            "9_1": {"status": "연년(延年)", "classical": "武曲金星四子强", "desc": "이궁(9) 남자와 감궁(1) 여자가 만나 무곡성의 백년해로를 이룹니다. 수화기제의 조화를 이루어 막대한 재물을 쌓고 자손이 튼튼합니다."},
-            "9_2": {"status": "육살(六殺)", "classical": "文曲水星僅一子", "desc": "이궁(9) 남자와 곤궁(2) 여자가 만나 문곡성의 건조한 비극에 빠집니다. 욕망이 유흥과 외도로 변질되어 가계를 파탄 냅니다."},
-            "9_3": {"status": "생기(生氣)", "classical": "貪生五子", "desc": "이궁(9) 남자와 진궁(3) 여자가 만나 탐랑성의 번영을 일굽니다. 가문의 명예와 부가 맹렬히 솟구치며 훌륭한 자손들이 줄을 잇습니다."},
-            "9_4": {"status": "천의(天醫)", "classical": "巨三郞", "desc": "이궁(9) 남자와 손궁(4) 여자가 만나 거문성의 치유를 누립니다. 죽을 병도 비껴가며 부동산과 자본이 태산처럼 쌓이는 으뜸 인연입니다."},
-            "9_6": {"status": "절명(絶命)", "classical": "破軍破財孤孀", "desc": "이궁(9) 남자와 건궁(6) 여자가 만나 파군성의 소름 끼치는 파멸을 마주합니다. 명줄을 재촉하여 단명하거나 멸문의 화를 초래합니다."},
-            "9_7": {"status": "오귀(五鬼)", "classical": "廉貞獨火鬼兩箇", "desc": "이궁(9) 남자와 태궁(7) 여자가 만나 염정성의 흉포한 귀신에 휩싸입니다. 미친 듯이 싸우고 파산과 사고가 겹쳐 모든 것을 잃는 대흉살입니다."},
-            "9_8": {"status": "화해(禍害)", "classical": "祿存土宿人遭殃", "desc": "이궁(9) 남자와 간궁(8) 여자가 만나 녹존성의 억울한 누명을 씁니다. 뜻이 겉돌고 피땀 흘린 재산이 남의 손으로 빠져나갑니다."},
-            "9_9": {"status": "복위(伏位)", "classical": "輔弼知是半兒郞", "desc": "이궁(9) 남자와 이궁(9) 여자가 만나 보필성의 따스한 온기를 유지합니다. 맹렬한 발전은 없으나 건조하고 평범하게 백년해로합니다."}
-        }
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import BaziChart from '@/components/result/BaziChart';
 
-        # ==========================================
-        # [로직 복구 완료] 남녀혼인 멸문법 및 상부상처살 DB
-        # ==========================================
-        self.myeolmun_db = {
-            1: 9, 2: 8, 3: 7, 4: 6, 5: 5, 
-            6: 4, 7: 3, 8: 2, 9: 1, 10: 12, 11: 11, 12: 10
-        }
-        self.sangbu_db = {
-            "子": [1, 2], "午": [1, 2], "丑": [4, 5], "未": [4, 5], "寅": [7, 8], "申": [7, 8]
-        }
+export default function ResultPage() {
+    const router = useRouter();
+    const [resData, setResData] = useState<any>(null);
 
-    # ==========================================
-    # 🛡️ 추가된 헬퍼 함수: 에러 원천 차단 
-    # ==========================================
-    def _extract_safe_int(self, val, default=0):
-        if isinstance(val, dict):
-            if "number" in val:
-                try: return int(val["number"])
-                except: pass
-            for v in val.values():
-                if isinstance(v, int) or (isinstance(v, str) and v.isdigit()):
-                    return int(v)
-            return default
-        try:
-            return int(val)
-        except (ValueError, TypeError):
-            return default
-
-    # ==========================================
-    # 유틸리티 (본명성 추출용)
-    # ==========================================
-    def _split_name_hanja(self, raw_str: str) -> tuple:
-        try:
-            if not isinstance(raw_str, str): raw_str = str(raw_str)
-            if "(" in raw_str and ")" in raw_str:
-                parts = raw_str.split("(")
-                return parts[0].strip(), parts[1].replace(")", "").strip()
-            return raw_str, ""
-        except Exception:
-            return str(raw_str), ""
-
-    # 🚨 [핵심 패치 1] NoneType/문자열 충돌 차단
-    def _get_root_number(self, year) -> int:
-        try:
-            year_str = "".join(filter(str.isdigit, str(year)))
-            if not year_str: return 1
-            r = sum(int(digit) for digit in year_str)
-            while r > 9:
-                r = sum(int(digit) for digit in str(r))
-            return r
-        except Exception:
-            return 1
-
-    # 🚨 [핵심 패치 2] 기본 별자리 반환 안전장치
-    def get_bonmyeongseong(self, year, gender) -> dict:
-        try:
-            root_num = self._get_root_number(year)
-            if str(gender).upper() == 'M': star_num = (11 - root_num) % 9
-            else: star_num = (4 + root_num) % 9
-            if star_num == 0: star_num = 9
-            
-            star_full = self.stars.get(star_num, "일백수성(一白水星)")
-            name_clean, hanja_clean = self._split_name_hanja(star_full)
-            
-            return {"number": star_num, "name": name_clean, "hanja": hanja_clean}
-        except Exception:
-            return {"number": 1, "name": "알 수 없음", "hanja": "無"}
-
-    # ==========================================
-    # 🚨 [신규 코어 로직] 싱글 유저 이상형(최고의 궁합) 역산 처방
-    # ==========================================
-    def get_ideal_partner(self, bazi: dict, yongshin: dict, star_num: int, gender: str) -> dict:
-        """ 파트너 정보가 없을 때, 나만의 완벽한 맞춤 이상형을 역산(Reverse-Engineering)합니다. """
-        try:
-            bazi = bazi if isinstance(bazi, dict) else {}
-            yongshin = yongshin if isinstance(yongshin, dict) else {}
-            
-            y_branch = bazi.get("year", {}).get("branch", "")
-            d_branch = bazi.get("day", {}).get("branch", "")
-            
-            animals = {"子":"쥐", "丑":"소", "寅":"호랑이", "卯":"토끼", "辰":"용", "巳":"뱀", "午":"말", "未":"양", "申":"원숭이", "酉":"닭", "戌":"개", "亥":"돼지"}
-            
-            # 삼합(4살 차이) 및 육합(최고의 결속력) 기준 매핑
-            samhap = {
-                "申":"쥐, 용", "子":"원숭이, 용", "辰":"원숭이, 쥐",
-                "亥":"토끼, 양", "卯":"돼지, 양", "未":"돼지, 토끼",
-                "寅":"말, 개", "午":"호랑이, 개", "戌":"호랑이, 말",
-                "巳":"닭, 소", "酉":"뱀, 소", "丑":"뱀, 닭"
+    useEffect(() => {
+        const storedData = sessionStorage.getItem('baziResult');
+        if (storedData) {
+            try {
+                setResData(JSON.parse(storedData));
+            } catch (e) {
+                router.push('/');
             }
-            yukhap = {"子":"소", "丑":"쥐", "寅":"돼지", "亥":"호랑이", "卯":"개", "戌":"토끼", "辰":"닭", "酉":"용", "巳":"원숭이", "申":"뱀", "午":"양", "未":"말"}
-            
-            my_animal = animals.get(y_branch, "")
-            
-            # 용신/희신 오행 추출
-            y_str = str(yongshin.get("yongshin", ""))
-            h_str = str(yongshin.get("huishin", ""))
-            needs_list = [e for e in [y_str, h_str] if e]
-            
-            if needs_list:
-                elements_desc = f"당신의 사주에 가장 절실한 수호 에너지인 [{', '.join(needs_list)}] 기운을 풍부하게 가진 사람을 만나야 합니다. 상대방의 사주에 이 기운이 많을수록 당신의 삶이 안정되고 재물운이 수직 상승합니다."
-            else:
-                elements_desc = "자신의 기운이 뚜렷하여 상대의 오행에 크게 기대지 않아도 되는 독립적인 명식입니다. 본인의 페이스를 유지할 수 있는 이해심 많은 상대를 찾으십시오."
+        } else {
+            router.push('/');
+        }
+    }, [router]);
 
-            # 64구궁 매트릭스를 역으로 돌려 나에게 '대길(생기, 천의, 연년)'을 주는 상대의 별자리 스캔
-            best_stars = []
-            star_num_int = self._extract_safe_int(star_num, default=1)
-            for i in range(1, 10):
-                if i == 5: continue
-                m_t = star_num_int if str(gender).upper() == 'M' else i
-                f_t = i if str(gender).upper() == 'M' else star_num_int
-                m_t = 2 if m_t == 5 else m_t
-                f_t = 8 if f_t == 5 else f_t
+    if (!resData) return <div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center text-[#d4af37]">데이터 로딩중...</div>;
+
+    const safeString = (val: any) => {
+        if (val === null || val === undefined) return "-";
+        if (typeof val === 'string' || typeof val === 'number') return val;
+        return JSON.stringify(val); 
+    };
+
+    const extractScore = (obj: any) => {
+        if (typeof obj === 'number') return obj;
+        if (typeof obj === 'object' && obj !== null) {
+            if ('score' in obj) return obj.score;
+            if ('total_score' in obj) return obj.total_score;
+            if ('power' in obj) return obj.power;
+            if ('point' in obj) return obj.point;
+            if ('value' in obj) return obj.value;
+            const numericVal = Object.values(obj).find(v => typeof v === 'number');
+            if (numericVal !== undefined) return numericVal;
+        }
+        return null;
+    };
+
+    // 🚨 [핵심 유지] 브라우저 멈춤(Freeze) 현상 원천 차단
+    const findDeepData = (obj: any, keywords: string[], depth = 0): any => {
+        if (depth > 5) return null; 
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null; 
+        
+        for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                if (keywords.some(k => key.toLowerCase().includes(k))) {
+                    if (obj[key] !== null && typeof obj[key] === 'object' && Object.keys(obj[key]).length > 0) return obj[key];
+                    if (typeof obj[key] === 'string' && obj[key].length > 5) return obj[key];
+                }
+                if (obj[key] !== null && typeof obj[key] === 'object') {
+                    const found = findDeepData(obj[key], keywords, depth + 1);
+                    if (found) return found;
+                }
+            }
+        }
+        return null;
+    };
+
+    const baziData = resData.bazi_data || resData.m_bazi || resData;
+    const hiddenStems = resData.hidden_stems;
+    const analysis = resData.analysis_result || {};
+    
+    // 🚨 비전 명리 및 풍수지리(fengshui) 데이터 추출 추가
+    const { 
+        strength, geokguk, yongshin, practical, mechanics, 
+        elements_imbalance, dynamics, unse, timeline, classical, 
+        napeum_reading, ideal_partner, secret_readings, fengshui
+    } = analysis;
+
+    const yongshinDesc = yongshin?.reason || yongshin?.desc || yongshin?.description || yongshin?.advice || yongshin?.solution || "처방 데이터가 없습니다.";
+    
+    const gunghap = resData.gunghap || analysis.gunghap;
+    const isPartnerMatched = !!gunghap && typeof gunghap === 'object' && Object.keys(gunghap).length > 0;
+
+    const idealMatchData = findDeepData(analysis, ['romance', 'partner', 'ideal', 'love', 'spouse', 'marriage']) || 
+                           "나만의 고유한 기운을 보완해 줄 수 있는 오행을 가진 사람을 만나는 것이 좋습니다.";
+    
+    const wealthData = findDeepData(analysis, ['wealth', 'money', 'finance', 'asset', 'rich']) || 
+                       "성실함과 꾸준함으로 자산을 축적하는 흐름입니다.";
+
+    const renderObjectData = (data: any) => {
+        if (!data) return null;
+        if (typeof data === 'string') return <p>{data}</p>;
+        return Object.entries(data).map(([k, v]: [string, any], i) => {
+            if (k === 'score' || k === 'value' || typeof v === 'object') return null;
+            return <p key={i} className="mb-1"><strong className="text-white capitalize">{k.replace('_', ' ')}:</strong> {safeString(v)}</p>;
+        });
+    };
+
+    let parsedClassical: any[] = [];
+    if (classical?.reading) {
+        if (typeof classical.reading === 'string') {
+            try { parsedClassical = JSON.parse(classical.reading); } 
+            catch (e) { parsedClassical = [{ section: "종합 해석", items: [{ text: classical.reading }] }]; }
+        } else if (Array.isArray(classical.reading)) {
+            parsedClassical = classical.reading;
+        }
+    }
+
+    return (
+        <div className="bg-[#0a0a0c] min-h-screen text-gray-300 font-sans pb-20">
+            <header className="bg-[#111318] border-b border-gray-800 p-6 flex justify-between items-center shadow-xl">
+                <div>
+                    <h1 className="text-2xl font-black text-[#d4af37]">MYEONGRI MASTER</h1>
+                    <div className="text-xs text-gray-500 mt-1 uppercase">Engine V4.0 | TS: {safeString(resData.metadata?.true_solar_time)}</div>
+                </div>
+                <button onClick={() => router.push('/')} className="px-5 py-2 bg-linear-to-r from-[#b5952f] to-[#d4af37] text-black font-black text-xs uppercase rounded transition-colors shadow-lg hover:scale-105">
+                    New Scan
+                </button>
+            </header>
+
+            <div className="max-w-6xl mx-auto p-4 md:p-6 mt-4 flex flex-col gap-6">
                 
-                key = f"{m_t}_{f_t}"
-                status = self.gugung_matrix.get(key, {}).get("status", "")
-                if status in ["생기(生氣)", "천의(天醫)", "연년(延年)"]:
-                    best_stars.append(f"{i}성")
-            
-            # 프론트엔드가 예쁘게 그려낼 수 있도록 키값을 최적화하여 반환
-            return {
-                "추천_나이와_띠": f"당신의 띠({my_animal}띠)를 기준으로 볼 때, '4살 차이'인 [{samhap.get(y_branch, '')}띠]와의 만남이 가장 이상적입니다. 4살 차이는 예로부터 궁합도 보지 않는다고 할 만큼 가치관이 잘 맞습니다. 또한 영혼의 단짝이라 불리는 육합 관계인 [{yukhap.get(y_branch, '')}띠]도 훌륭한 인연입니다.",
-                "영혼의_속궁합": f"일지(배우자궁)를 기준으로 당신과 육체적/정서적 교감이 완벽히 이루어지는 상대는 지지에 [{yukhap.get(d_branch, '')}띠] 기운을 가진 사람입니다. 이 기운을 가진 사람과는 대화가 깊이 통하고 맹목적인 끌림을 느낍니다.",
-                "최적의_오행_기운": elements_desc,
-                "천생연분_별자리": f"당신의 별자리와 64구궁팔괘 매트릭스를 역산해 보았을 때, 하늘의 축복을 받는 상대의 별자리(본명성)는 [{', '.join(best_stars)}]입니다. 이 별자리를 가진 사람과 맺어지면 천의(치유)와 생기(활력)를 얻어 무병장수하고 굳건한 백년해로를 이룹니다."
-            }
-            
-        except Exception as e:
-            return {"안내": "상세 이상형 처방을 계산할 수 없습니다. 사주 구조가 매우 특수합니다."}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2 bg-[#111318] rounded-xl border border-gray-800 shadow-xl overflow-hidden">
+                        <div className="bg-[#1a1c23] px-4 py-3 border-b border-gray-800">
+                            <h2 className="text-sm font-bold text-[#d4af37]">1. Core Bazi Matrix (명식 엔진)</h2>
+                        </div>
+                        <div className="p-4">
+                            {baziData && <BaziChart baziData={baziData} />}
+                            <div className="mt-6 pt-4 border-t border-gray-800">
+                                <h3 className="text-xs text-gray-500 font-bold mb-3 uppercase">Hidden Stems (지장간)</h3>
+                                <div className="grid grid-cols-4 gap-2 text-center text-sm font-mono">
+                                    {['year', 'month', 'day', 'hour'].map(pillar => (
+                                        <div key={pillar} className="bg-[#0a0a0c] p-3 rounded border border-gray-800">
+                                            <div className="text-gray-600 text-[10px] mb-1 uppercase font-bold">{pillar}</div>
+                                            <div className="text-[#3498db] text-xs">{hiddenStems?.[pillar]?.initial?.join(', ') || '-'}</div>
+                                            <div className="text-[#2ecc71] text-xs">{hiddenStems?.[pillar]?.middle?.join(', ') || '-'}</div>
+                                            <div className="text-[#e74c3c] font-bold text-sm mt-1">{hiddenStems?.[pillar]?.main?.join(', ') || '-'}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                                
+                                {mechanics?.tonggeun && (
+                                    <div className="mt-4 bg-[#0a0a0c] p-4 rounded-lg border border-gray-800 shadow-inner">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <strong className="text-[#d4af37] text-xs uppercase">일간 통근 (나의 에너지 뿌리)</strong>
+                                            <span className="bg-blue-900/30 text-blue-400 text-[11px] px-2.5 py-1 rounded-full border border-blue-900/50 font-bold font-mono">
+                                                TOTAL POWER: {mechanics.tonggeun.total_power || 0}
+                                            </span>
+                                        </div>
+                                        {mechanics.tonggeun.is_rooted && Array.isArray(mechanics.tonggeun.roots) && mechanics.tonggeun.roots.length > 0 ? (
+                                            <div className="flex flex-wrap gap-2 mt-2">
+                                                {mechanics.tonggeun.roots.map((r: any, idx: number) => (
+                                                    <span key={idx} className="text-[10px] text-gray-300 bg-[#111318] px-2.5 py-1.5 rounded border border-gray-700 shadow-sm flex items-center gap-1">
+                                                        <span className="text-gray-500">{r.pillar}</span>
+                                                        <span className="font-bold text-white">{r.branch}</span>
+                                                        <span className="text-[#2ecc71] ml-1">{r.type}</span>
+                                                        <span className="font-bold text-[#e74c3c]">{r.hidden_stem}</span>
+                                                        <span className="text-blue-400 font-mono ml-1">(+{r.power})</span>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="text-[11px] text-red-400 mt-2 bg-red-950/20 p-2 rounded border border-red-900/30">
+                                                뿌리가 튼튼하게 내리지 못했습니다 (無根). 주변 환경 변화에 휩쓸리지 않는 강인한 주관 확립이 필요합니다.
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
 
-    # 1. 치명적 위기 스캔
-    def scan_fatal_disasters(self, m_bazi: dict, f_bazi: dict, m_lunar_m: int, f_lunar_m: int) -> list:
-        warnings = []
-        try:
-            m_bazi = m_bazi if isinstance(m_bazi, dict) else {}
-            f_bazi = f_bazi if isinstance(f_bazi, dict) else {}
-            
-            m_year = m_bazi.get("year", {}) if isinstance(m_bazi, dict) else {}
-            m_year_branch = m_year.get("branch", "") if isinstance(m_year, dict) else ""
-            
-            if m_lunar_m and f_lunar_m:
-                if self.myeolmun_db.get(m_lunar_m) == f_lunar_m:
-                    warnings.append(
-                        f"【멸문살(滅門殺) 경고】 고서에 이르길 {m_lunar_m}월생 남자와 {f_lunar_m}월생 여자의 혼인은 가문을 쇠락하게 한다 하였습니다. 극도의 배려와 헌신이 없으면 파국을 피하기 어렵습니다."
-                    )
+                    <div className="bg-[#111318] rounded-xl border border-gray-800 shadow-xl overflow-hidden flex flex-col">
+                        <div className="bg-[#1a1c23] px-4 py-3 border-b border-gray-800">
+                            <h2 className="text-sm font-bold text-[#d4af37]">2. Energy & Balance (에너지/그릇)</h2>
+                        </div>
+                        <div className="p-4 flex-1 flex flex-col gap-4">
+                            
+                            <div className="bg-[#0a0a0c] p-4 rounded border border-gray-800">
+                                <div className="flex justify-between items-center mb-2 border-b border-gray-800/50 pb-2">
+                                    <span className="text-xs text-gray-500 font-bold uppercase tracking-widest">에너지 (신강/신약)</span>
+                                    <div className="text-right">
+                                        <span className="font-bold text-white text-sm">{safeString(strength?.status || strength?.name || strength)}</span>
+                                        {extractScore(strength) !== null && <span className="ml-2 inline-block bg-red-900/20 text-[#e74c3c] px-2 py-0.5 rounded text-[11px] font-mono border border-red-900/50">POWER: {extractScore(strength)}</span>}
+                                    </div>
+                                </div>
+                                <div className="text-gray-400 text-xs leading-relaxed font-light">
+                                    {safeString(strength?.desc || strength?.description || "사주의 전체적인 기운과 체급을 나타냅니다.")}
+                                </div>
+                            </div>
 
-            if f_lunar_m and m_year_branch:
-                 if f_lunar_m in self.sangbu_db.get(m_year_branch, []):
-                     warnings.append(
-                        f"【상처살(喪妻殺) 경고】 남성의 띠({m_year_branch})와 여성의 생월({f_lunar_m}월)이 부딪혀 여성의 수명을 위협하는 흉살이 잠복해 있습니다. 주말부부 등 물리적 거리를 강제하는 액땜이 필요합니다."
-                     )
-        except Exception:
-            pass
-        return warnings
+                            <div className="bg-[#0a0a0c] p-4 rounded border border-gray-800">
+                                <div className="flex justify-between items-center mb-2 border-b border-gray-800/50 pb-2">
+                                    <span className="text-xs text-gray-500 font-bold uppercase tracking-widest">격국 (사회적 그릇)</span>
+                                    <div className="text-right">
+                                        <span className="font-bold text-[#3498db] text-sm">{safeString(geokguk?.name_clean || geokguk?.name)}</span>
+                                        {extractScore(geokguk) !== null && <span className="ml-2 inline-block bg-blue-900/20 text-[#3498db] px-2 py-0.5 rounded text-[11px] font-mono border border-blue-900/50">SCORE: {extractScore(geokguk)}</span>}
+                                    </div>
+                                </div>
+                                <div className="text-gray-400 text-xs leading-relaxed font-light">
+                                    {safeString(geokguk?.desc || geokguk?.description || geokguk?.characteristics || "당신의 사회적 역할과 타고난 무기를 의미합니다.")}
+                                </div>
+                            </div>
 
-    # 2. 오행 구원 조후 보완
-    def calculate_elemental_salvation(self, m_yongshin: dict, f_elements: dict, f_yongshin: dict, m_elements: dict) -> dict:
-        try:
-            m_yongshin = m_yongshin if isinstance(m_yongshin, dict) else {}
-            f_elements = f_elements if isinstance(f_elements, dict) else {}
-            
-            m_need = str(m_yongshin.get("yongshin", ""))
-            
-            m_score = 0
-            desc_list = []
+                            <div className="bg-[#0a0a0c] p-4 rounded border border-gray-800">
+                                <div className="flex justify-between items-center mb-2 border-b border-gray-800/50 pb-2">
+                                    <span className="text-xs text-gray-500 font-bold uppercase tracking-widest">수호신 (용신)</span>
+                                    <div className="text-right">
+                                        <span className="font-bold text-[#2ecc71] text-sm">{safeString(yongshin?.yongshin || yongshin?.name)}</span>
+                                        {extractScore(yongshin) !== null && <span className="ml-2 inline-block bg-green-900/20 text-[#2ecc71] px-2 py-0.5 rounded text-[11px] font-mono border border-green-900/50">POWER: {extractScore(yongshin)}</span>}
+                                    </div>
+                                </div>
+                                <div className="text-gray-400 text-xs leading-relaxed font-light mb-2">
+                                    {safeString(yongshin?.desc || yongshin?.description || "사주의 불균형을 해결해 주는 가장 핵심적인 기운입니다.")}
+                                </div>
+                                <div className="text-[11px] text-[#d4af37] bg-yellow-900/10 p-2 rounded border border-yellow-900/30 leading-relaxed">
+                                    <strong>💡 처방/솔루션:</strong> {safeString(yongshinDesc)}
+                                </div>
+                            </div>
+                            
+                        </div>
+                    </div>
+                </div>
 
-            def safe_count(val):
-                try: return int(val)
-                except: return 0
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-[#111318] rounded-xl border border-gray-800 shadow-xl overflow-hidden">
+                        <div className="bg-[#1a1c23] px-4 py-3 border-b border-gray-800 flex justify-between">
+                            <h2 className="text-sm font-bold text-[#d4af37]">3. Elements & Health (오행/건강)</h2>
+                            {mechanics?.gongmang && mechanics.gongmang !== "-" && (
+                                <span className="text-[10px] bg-red-900/30 text-red-400 px-2 py-0.5 rounded border border-red-900/50 font-bold">
+                                    공망: {Array.isArray(mechanics.gongmang) ? mechanics.gongmang.join(', ') : mechanics.gongmang}
+                                </span>
+                            )}
+                        </div>
+                        <div className="p-4">
+                            {mechanics?.elements_dist && (
+                                <div className="flex gap-1 mb-5">
+                                    {['목', '화', '토', '금', '수'].map(el => (
+                                        <div key={el} className="flex-1 bg-[#0a0a0c] p-2 rounded border border-gray-800 text-center relative overflow-hidden">
+                                            <div className="text-[10px] text-gray-500 mb-1">{el}</div>
+                                            <div className={`font-mono text-lg font-bold ${mechanics.elements_dist[el] === 0 ? 'text-red-500' : 'text-white'}`}>
+                                                {safeString(mechanics.elements_dist[el])}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <div className="space-y-3">
+                                {Array.isArray(practical?.health) && practical.health.find((h:any) => h.element === '종합') && (
+                                    <div className="bg-blue-900/10 p-4 rounded-lg border-l-4 border-[#3498db] mb-2">
+                                        <div className="text-[#3498db] font-bold text-[12px] mb-1">✨ [종합 건강 리포트]</div>
+                                        <div className="text-gray-300 text-[12px] leading-relaxed">
+                                            {practical.health.find((h:any) => h.element === '종합').advice}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {Array.isArray(elements_imbalance) && elements_imbalance.length > 0 ? elements_imbalance.map((warn: any, idx: number) => (
+                                    <div key={idx} className="bg-red-950/20 p-4 rounded-lg border border-red-900/30">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="text-red-400 font-bold text-sm">[{warn.element} 기운 {warn.type}]</span>
+                                            {warn.organ && (
+                                                <span className="text-gray-400 text-[10px] bg-[#0a0a0c] px-2 py-0.5 rounded border border-gray-800 shadow-sm">
+                                                    주의 장기: {warn.organ}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {warn.symptom && <div className="text-red-300 text-[11px] mb-2 font-bold tracking-wide">⚠️ 예상 증상: {warn.symptom}</div>}
+                                        <div className="text-gray-400 text-[12px] leading-relaxed">{warn.desc || warn.advice}</div>
+                                    </div>
+                                )) : <div className="text-xs text-gray-500 p-3 bg-[#0a0a0c] rounded border border-gray-800">심각한 오행 불균형이 없습니다.</div>}
+                            </div>
+                        </div>
+                    </div>
 
-            if "목" in m_need and safe_count(f_elements.get("목", 0)) >= 2: m_score += 1
-            if "화" in m_need and safe_count(f_elements.get("화", 0)) >= 2: m_score += 1
-            if "토" in m_need and safe_count(f_elements.get("토", 0)) >= 2: m_score += 1
-            if "금" in m_need and safe_count(f_elements.get("금", 0)) >= 2: m_score += 1
-            if "수" in m_need and safe_count(f_elements.get("수", 0)) >= 2: m_score += 1
+                    <div className="bg-[#111318] rounded-xl border border-gray-800 shadow-xl overflow-hidden flex flex-col">
+                        <div className="bg-[#1a1c23] px-4 py-3 border-b border-gray-800">
+                            <h2 className="text-sm font-bold text-[#d4af37]">4. Career & Active Disasters (직업/흉살)</h2>
+                        </div>
+                        <div className="p-4 flex-1 flex flex-col gap-4">
+                            
+                            <div className="bg-[#0a0a0c] p-5 rounded-lg border border-gray-800 shadow-inner">
+                                <div className="text-[13px] font-bold text-[#9b59b6] mb-3 uppercase border-b border-gray-800 pb-2">
+                                    💼 핵심 직무 스타일: {safeString(practical?.career?.core_trait)}
+                                </div>
+                                <div className="mb-4">
+                                    <span className="text-[10px] text-gray-500 font-bold block mb-1">추천 직업 및 직군</span>
+                                    <div className="text-gray-300 text-[12px] leading-relaxed bg-[#111318] p-3 rounded border border-gray-800">
+                                        {safeString(practical?.career?.recommended_jobs)}
+                                    </div>
+                                </div>
+                                {practical?.career?.work_environment && (
+                                    <div>
+                                        <span className="text-[10px] text-gray-500 font-bold block mb-1">최적의 근무 환경 (용신 기반 처방)</span>
+                                        <div className="text-[#2ecc71] text-[12px] leading-relaxed bg-green-950/10 p-3 rounded border border-green-900/20">
+                                            {safeString(practical?.career?.work_environment)}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            <div className="flex-1 border-t border-gray-800 pt-4 mt-2">
+                                <h3 className="text-[11px] text-gray-500 mb-3 uppercase font-bold">발현된 흉살 및 상호작용</h3>
+                                <div className="flex flex-col gap-3">
+                                    {Array.isArray(dynamics?.disasters) && dynamics.disasters.length > 0 ? dynamics.disasters.map((d: any, i: number) => (
+                                        <div key={`d-${i}`} className="bg-purple-900/10 p-3 rounded border border-purple-900/30">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-[#9b59b6] font-bold text-sm">{typeof d === 'string' ? d : d.name}</span>
+                                                {d.hanja_clean && <span className="text-gray-500 text-[10px] font-serif">{d.hanja_clean}</span>}
+                                                {d.position && <span className="text-gray-400 text-[10px] bg-[#0a0a0c] px-1.5 py-0.5 rounded border border-gray-800 ml-auto">{d.position}</span>}
+                                            </div>
+                                            {d.desc && <div className="text-gray-400 text-[11px] leading-relaxed whitespace-pre-wrap">{d.desc}</div>}
+                                        </div>
+                                    )) : <span className="text-xs text-gray-500">발견된 주요 흉살이 없습니다.</span>}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-            if m_score > 0:
-                desc_list.append(f"여성의 사주에 남성이 간절히 필요로 하는 수호 에너지({m_need})가 풍부하여 남성의 막힌 숨통을 틔워줍니다.")
-                return {"score": 85, "desc": " ".join(desc_list) + " 서로가 서로의 부족한 기운을 완벽히 채워주는 생명의 은인 같은 결합입니다."}
-            else:
-                return {"score": 50, "desc": "상대방의 사주에서 특별히 나를 강력하게 구원해 줄 수호 에너지는 보이지 않습니다. 각자의 자립심으로 위기를 헤쳐나가야 합니다."}
-        except Exception:
-            return {"score": 0, "desc": "오행 분석에 필요한 데이터가 불충분합니다."}
+                <div className="bg-[#111318] rounded-xl border border-gray-800 shadow-xl overflow-hidden">
+                    <div className="bg-[#1a1c23] px-4 py-3 border-b border-gray-800 flex justify-between items-center">
+                        <h2 className="text-sm font-bold text-[#e74c3c]">5. Romance & Wealth (최고의 궁합 & 재물운)</h2>
+                        {isPartnerMatched ? (
+                            <span className="text-[10px] bg-red-900/30 text-red-400 px-2 py-0.5 rounded border border-red-900/50">V4 MATCH ENGINE</span>
+                        ) : (
+                            <span className="text-[10px] bg-pink-900/30 text-pink-400 px-2 py-0.5 rounded border border-pink-900/50">IDEAL MATCH</span>
+                        )}
+                    </div>
+                    <div className="p-4 md:p-6">
+                        {isPartnerMatched ? (
+                            <div className="flex flex-col gap-6">
+                                {gunghap.my_star && gunghap.partner_star && (
+                                    <div className="bg-[#0a0a0c] p-4 rounded border border-gray-800 flex justify-between items-center shadow-inner">
+                                        <div className="text-center flex-1">
+                                            <div className="text-[10px] text-gray-500 mb-1 font-bold uppercase">나의 본명성</div>
+                                            <div className="text-[#3498db] font-bold text-sm">{gunghap.my_star.name}</div>
+                                            <div className="text-xs text-gray-500 font-serif">{gunghap.my_star.hanja}</div>
+                                        </div>
+                                        <div className="text-gray-600 text-[10px] font-black px-4 italic">VS</div>
+                                        <div className="text-center flex-1">
+                                            <div className="text-[10px] text-gray-500 mb-1 font-bold uppercase">상대의 본명성</div>
+                                            <div className="text-[#e84393] font-bold text-sm">{gunghap.partner_star.name}</div>
+                                            <div className="text-xs text-gray-500 font-serif">{gunghap.partner_star.hanja}</div>
+                                        </div>
+                                    </div>
+                                )}
 
-    # 3. 입체적(3D) 속궁합 및 정신적 교감
-    def analyze_3d_match(self, m_day_pillar: dict, f_day_pillar: dict) -> dict:
-        try:
-            m_day_pillar = m_day_pillar if isinstance(m_day_pillar, dict) else {}
-            f_day_pillar = f_day_pillar if isinstance(f_day_pillar, dict) else {}
-            
-            m_stem = str(m_day_pillar.get("stem", ""))
-            f_stem = str(f_day_pillar.get("stem", ""))
-            m_branch = str(m_day_pillar.get("branch", ""))
-            f_branch = str(f_day_pillar.get("branch", ""))
+                                {Array.isArray(gunghap.fatal_warnings) && gunghap.fatal_warnings.length > 0 && (
+                                    <div className="bg-red-950/30 border border-red-900/50 p-4 rounded-lg">
+                                        <h3 className="text-red-500 font-bold text-[11px] mb-2 flex items-center gap-2">⚠️ FATAL WARNING (치명적 흉살 경고)</h3>
+                                        <ul className="list-disc pl-5 space-y-2">
+                                            {gunghap.fatal_warnings.map((warn: string, i: number) => (
+                                                <li key={i} className="text-red-300 text-xs leading-relaxed">{warn}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
 
-            mental = {"status": "평범", "desc": "정신적으로 무난하게 타협 가능한 동반자입니다."}
-            if {m_stem, f_stem} in [{"甲", "己"}, {"乙", "庚"}, {"丙", "辛"}, {"丁", "壬"}, {"戊", "癸"}]:
-                mental = {"status": "천간합(天干合)", "desc": "가치관이 소름 돋게 일치하며, 대화가 밤새 끊이지 않는 영혼의 단짝입니다."}
-            elif {m_stem, f_stem} in [{"甲", "庚"}, {"乙", "辛"}, {"丙", "壬"}, {"丁", "癸"}]:
-                mental = {"status": "천간충(天干沖)", "desc": "생각하는 방식이 정반대입니다. 잦은 언쟁이 발생하나 서로의 맹점을 깨우쳐주기도 합니다."}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {gunghap.gugung_matrix && typeof gunghap.gugung_matrix === 'object' && (
+                                        <div className="bg-[#0a0a0c] p-5 rounded border border-gray-800 border-t-2 border-t-[#e84393]">
+                                            <div className="text-[10px] text-gray-500 mb-2 font-bold uppercase">64구궁팔괘 매트릭스</div>
+                                            <div className="text-[#e84393] font-bold text-lg mb-2">{safeString(gunghap.gugung_matrix.status)}</div>
+                                            <div className="text-gray-300 text-xs leading-relaxed mb-3">{safeString(gunghap.gugung_matrix.desc)}</div>
+                                            <div className="text-gray-500 text-[10px] font-serif border-t border-gray-800 pt-2">"{safeString(gunghap.gugung_matrix.classical)}"</div>
+                                        </div>
+                                    )}
 
-            physical = {"status": "평범", "pros": "무던한 일상 유지", "cons": "다소 권태로울 수 있음"}
-            if {m_branch, f_branch} in [{"子", "丑"}, {"寅", "亥"}, {"卯", "戌"}, {"辰", "酉"}, {"巳", "申"}, {"午", "未"}]:
-                physical = {"status": "육합(六合)", "pros": "천생연분의 속궁합과 무한한 애정", "cons": "서로에게 갇혀 외부 대인관계가 단절될 우려"}
-            elif {m_branch, f_branch} in [{"子", "午"}, {"丑", "未"}, {"寅", "申"}, {"卯", "酉"}, {"辰", "戌"}, {"巳", "亥"}]:
-                physical = {"status": "충(沖)", "pros": "초반의 강렬한 스파크와 매력", "cons": "잦은 충돌과 좁혀지지 현실적 거리감"}
-            elif {m_branch, f_branch} in [{"子", "未"}, {"丑", "午"}, {"寅", "酉"}, {"卯", "申"}, {"辰", "亥"}, {"巳", "戌"}]:
-                physical = {"status": "원진(怨嗔)", "pros": "자석 같은 치명적 끌림과 맹목적 집착", "cons": "서로를 뜯어먹는 피말리는 감정소모"}
+                                    {gunghap.elemental_salvation && typeof gunghap.elemental_salvation === 'object' && (
+                                        <div className="bg-[#0a0a0c] p-5 rounded border border-gray-800 border-t-2 border-t-[#2ecc71]">
+                                            <div className="text-[10px] text-gray-500 mb-2 font-bold uppercase">오행 구원 및 조후 보완</div>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className="text-[#2ecc71] font-bold text-lg">상생 조화력</div>
+                                                <span className="bg-green-900/30 text-green-400 text-[10px] px-2 py-0.5 rounded border border-green-900/50">SCORE: {safeString(gunghap.elemental_salvation.score)}</span>
+                                            </div>
+                                            <div className="text-gray-300 text-xs leading-relaxed">{safeString(gunghap.elemental_salvation.desc)}</div>
+                                        </div>
+                                    )}
+                                </div>
 
-            return {"mental": mental, "physical": physical}
-        except Exception:
-            return {"mental": {"status": "분석 불가", "desc": "데이터 부족"}, "physical": {"status": "분석 불가", "pros": "-", "cons": "-"}}
+                                {gunghap.match_3d && typeof gunghap.match_3d === 'object' && (
+                                    <div className="bg-[#0a0a0c] p-5 rounded border border-gray-800">
+                                        <h3 className="text-xs text-[#d4af37] font-bold mb-4 uppercase">입체적(3D) 속궁합 분석</h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="bg-[#111318] p-4 rounded border border-gray-800">
+                                                <div className="text-[10px] text-gray-500 mb-1 font-bold">정신적 교감 (천간)</div>
+                                                <div className="text-blue-400 font-bold text-sm mb-2">{safeString(gunghap.match_3d.mental?.status)}</div>
+                                                <div className="text-gray-400 text-xs leading-relaxed">{safeString(gunghap.match_3d.mental?.desc)}</div>
+                                            </div>
+                                            <div className="bg-[#111318] p-4 rounded border border-gray-800">
+                                                <div className="text-[10px] text-gray-500 mb-1 font-bold">육체적 결합 (지지)</div>
+                                                <div className="text-pink-400 font-bold text-sm mb-2">{safeString(gunghap.match_3d.physical?.status)}</div>
+                                                <div className="text-green-400 text-xs mb-1">장점: {safeString(gunghap.match_3d.physical?.pros)}</div>
+                                                <div className="text-red-400 text-xs">단점: {safeString(gunghap.match_3d.physical?.cons)}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 gap-6">
+                                {analysis.my_star && (
+                                    <div className="bg-[#0a0a0c] p-4 rounded border border-gray-800 flex justify-between items-center shadow-sm">
+                                        <span className="text-[10px] text-gray-500 font-bold uppercase">나의 타고난 본명성(별자리)</span>
+                                        <div className="text-right">
+                                            <span className="text-[#3498db] font-bold text-sm">{analysis.my_star.name}</span>
+                                            <span className="text-gray-500 text-xs ml-2 font-serif">{analysis.my_star.hanja}</span>
+                                        </div>
+                                    </div>
+                                )}
 
-    # 4. 64구궁(본명성) 매트릭스 도출
-    def get_64_gugung_matrix(self, m_star: int, f_star: int) -> dict:
-        try:
-            if m_star is None or f_star is None or m_star == 0 or f_star == 0:
-                return {"status": "알 수 없음", "classical": "無", "desc": "본명성 데이터가 부족하여 구궁팔괘 매트릭스를 계산할 수 없습니다."}
-                
-            m_trigram = 2 if int(m_star) == 5 else int(m_star)
-            f_trigram = 8 if int(f_star) == 5 else int(f_star)
-            
-            combo_key = f"{m_trigram}_{f_trigram}"
-            return self.gugung_matrix.get(combo_key, {
-                "status": "알 수 없음", "classical": "無", "desc": "두 사람의 본명궁 조합 파동이 평범하여 극적인 길흉이 나타나지 않습니다."
-            })
-        except Exception:
-            return {"status": "연산 오류", "classical": "無", "desc": "매트릭스 도출 중 데이터 충돌이 발생했습니다."}
+                                <div className="bg-[#0a0a0c] p-5 md:p-6 rounded border border-gray-800 border-t-2 border-t-[#e84393] shadow-lg">
+                                    <h3 className="text-[12px] text-[#e84393] mb-4 font-bold uppercase flex items-center gap-2 border-b border-gray-800 pb-3">
+                                        <span>💘 나만의 최고 궁합 (역산형 이상형 처방전)</span>
+                                    </h3>
+                                    
+                                    {ideal_partner && typeof ideal_partner === 'object' ? (
+                                        <div className="flex flex-col gap-4">
+                                            {Object.entries(ideal_partner).map(([key, val]: [string, any], idx: number) => {
+                                                if (key === 'score' || key === 'value') return null;
+                                                return (
+                                                    <div key={idx} className="bg-[#111318] p-4 rounded border border-gray-800 relative overflow-hidden">
+                                                        <div className="text-[11px] text-[#f1c40f] font-bold mb-2 tracking-wide uppercase">
+                                                            ■ {key.replace(/_/g, ' ')}
+                                                        </div>
+                                                        <div className="text-gray-300 text-[12px] leading-loose break-keep">
+                                                            {safeString(val)}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
+                                            {renderObjectData(idealMatchData)}
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                <div className="bg-[#0a0a0c] p-5 md:p-6 rounded border border-gray-800 border-t-2 border-t-[#f1c40f] shadow-lg">
+                                    <h3 className="text-[11px] text-[#f1c40f] mb-3 font-bold uppercase flex items-center gap-2">
+                                        <span>💰 재물운 (자산 증식 가이드)</span>
+                                    </h3>
+                                    <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
+                                        {renderObjectData(wealthData)}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
 
-    # ==========================================
-    # 🚀 최종 융합 렌더링 파이프라인
-    # ==========================================
-    def get_ultimate_compatibility(
-        self, 
-        m_bazi=None, 
-        f_bazi=None, 
-        m_lunar_m=None, 
-        f_lunar_m=None, 
-        m_yongshin=None, 
-        f_yongshin=None, 
-        m_elements=None, 
-        f_elements=None, 
-        m_star=None, 
-        f_star=None
-    ) -> dict:
-        try:
-            m_bazi = m_bazi if isinstance(m_bazi, dict) else {}
-            f_bazi = f_bazi if isinstance(f_bazi, dict) else {}
-            
-            m_day = m_bazi.get("day", {}) if isinstance(m_bazi, dict) and isinstance(m_bazi.get("day"), dict) else {}
-            f_day = f_bazi.get("day", {}) if isinstance(f_bazi, dict) and isinstance(f_bazi.get("day"), dict) else {}
+                {Array.isArray(dynamics?.special_stars) && dynamics.special_stars.length > 0 && (
+                    <div className="bg-[#111318] rounded-xl border border-gray-800 shadow-xl overflow-hidden">
+                        <div className="bg-[#1a1c23] px-4 py-3 border-b border-gray-800">
+                            <h2 className="text-sm font-bold text-[#d4af37]">6. Special Stars (부위별 귀인 및 길성)</h2>
+                        </div>
+                        <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {dynamics.special_stars.map((star: any, idx: number) => (
+                                <div key={idx} className="bg-[#0a0a0c] p-4 rounded border border-gray-800 border-l-2 border-l-[#f1c40f]">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div>
+                                            <span className="text-[#f1c40f] font-bold text-sm">{star.name}</span>
+                                            {star.hanja_clean && <span className="text-gray-500 text-xs ml-2 font-serif">{star.hanja_clean}</span>}
+                                        </div>
+                                        {star.position && (
+                                            <span className="bg-yellow-900/20 text-[#f1c40f] text-[10px] px-2 py-0.5 rounded border border-yellow-900/30 text-right">
+                                                {star.position}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {star.desc && <div className="text-gray-400 text-xs leading-relaxed whitespace-pre-wrap">{star.desc}</div>}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
-            m_lunar_m_int = self._extract_safe_int(m_lunar_m)
-            f_lunar_m_int = self._extract_safe_int(f_lunar_m)
-            m_star_int = self._extract_safe_int(m_star, default=1)
-            f_star_int = self._extract_safe_int(f_star, default=1)
+                <div className="bg-[#111318] rounded-xl border border-gray-800 shadow-xl overflow-hidden">
+                    <div className="bg-[#1a1c23] px-4 py-3 border-b border-gray-800">
+                        <h2 className="text-sm font-bold text-[#d4af37]">7. Timeline & Realtime Unse (실시간 운세 흐름)</h2>
+                    </div>
+                    <div className="p-4 md:p-6">
+                        {unse && typeof unse === 'object' && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 items-stretch">
+                                
+                                <div className="bg-[#0a0a0c] p-5 rounded border border-gray-800 border-t-4 border-t-[#f1c40f] flex flex-col h-full shadow-lg">
+                                    <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-800">
+                                        <div className="text-[11px] text-gray-500 uppercase font-black tracking-wider">세운 (올해)</div>
+                                        <div className="font-mono text-[#f1c40f] font-bold text-lg">{safeString(unse.year?.stem)}{safeString(unse.year?.branch)}년</div>
+                                    </div>
+                                    <div className="mb-4">
+                                        <div className="text-[#f1c40f] font-bold text-[13px] mb-2">{safeString(unse.year?.overall_status)}</div>
+                                        <div className="text-[12px] text-gray-400 leading-relaxed">{safeString(unse.year?.overall_desc)}</div>
+                                    </div>
+                                    {Array.isArray(unse.year?.events) && unse.year.events.length > 0 && (
+                                        <div className="mt-auto pt-3 flex flex-col gap-2">
+                                            {unse.year.events.map((ev: any, i: number) => (
+                                                <div key={i} className={`p-3 rounded border ${ev.type === 'bad' ? 'bg-red-950/30 border-red-900/50' : 'bg-green-950/30 border-green-900/50'}`}>
+                                                    <div className={`font-bold text-[11px] mb-1 ${ev.type === 'bad' ? 'text-red-400' : 'text-green-400'}`}>{ev.title}</div>
+                                                    <div className="text-[10px] text-gray-500 leading-snug">{ev.desc}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
 
-            return {
-                "fatal_warnings": self.scan_fatal_disasters(m_bazi, f_bazi, m_lunar_m_int, f_lunar_m_int),
-                "elemental_salvation": self.calculate_elemental_salvation(m_yongshin, f_elements, f_yongshin, m_elements),
-                "match_3d": self.analyze_3d_match(m_day, f_day),
-                "gugung_matrix": self.get_64_gugung_matrix(m_star_int, f_star_int)
-            }
-        except Exception as e:
-            return {
-                "fatal_warnings": [f"엔진 연산 중 내부 오류가 방어되었습니다. ({str(e)})"],
-                "elemental_salvation": {"score": 0, "desc": "상대방 데이터 불균형으로 분석을 완료하지 못했습니다."},
-                "match_3d": {"mental": {"status": "분석 불가", "desc": "-"}, "physical": {"status": "분석 불가", "pros": "-", "cons": "-"}},
-                "gugung_matrix": {"status": "연산 중단", "classical": "無", "desc": "엔진 내부에서 알 수 없는 충돌을 방어했습니다."}
-            }
+                                <div className="bg-[#0a0a0c] p-5 rounded border border-gray-800 border-t-4 border-t-[#e74c3c] flex flex-col h-full shadow-lg">
+                                    <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-800">
+                                        <div className="text-[11px] text-gray-500 uppercase font-black tracking-wider">월건 (이달)</div>
+                                        <div className="font-mono text-white font-bold text-lg">
+                                            <span className="text-[#e74c3c] mr-1 text-sm">{unse.month?.month_num}월</span> 
+                                            {safeString(unse.month?.stem)}{safeString(unse.month?.branch)}
+                                        </div>
+                                    </div>
+                                    <div className="mb-4">
+                                        <div className="text-[#e74c3c] font-bold text-[13px] mb-2">{safeString(unse.month?.data?.overall_status)}</div>
+                                        <div className="text-[12px] text-gray-400 leading-relaxed">{safeString(unse.month?.data?.overall_desc)}</div>
+                                    </div>
+                                    {Array.isArray(unse.month?.data?.events) && unse.month.data.events.length > 0 && (
+                                        <div className="mt-auto pt-3 flex flex-col gap-2">
+                                            {unse.month.data.events.map((ev: any, i: number) => (
+                                                <div key={i} className={`p-3 rounded border ${ev.type === 'bad' ? 'bg-red-950/30 border-red-900/50' : 'bg-green-950/30 border-green-900/50'}`}>
+                                                    <div className={`font-bold text-[11px] mb-1 ${ev.type === 'bad' ? 'text-red-400' : 'text-green-400'}`}>{ev.title}</div>
+                                                    <div className="text-[10px] text-gray-500 leading-snug">{ev.desc}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="bg-[#0a0a0c] p-5 rounded border border-gray-800 border-t-4 border-t-[#3498db] flex flex-col h-full shadow-lg">
+                                    <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-800">
+                                        <div className="text-[11px] text-gray-500 uppercase font-black tracking-wider">일진 (오늘)</div>
+                                        <div className="font-mono text-white font-bold text-lg">
+                                            <span className="text-[#3498db] mr-1 text-sm">{unse.day?.day_num}일</span> 
+                                            {safeString(unse.day?.stem)}{safeString(unse.day?.branch)}
+                                        </div>
+                                    </div>
+                                    <div className="mb-4">
+                                        <div className="text-[#3498db] font-bold text-[13px] mb-2">{safeString(unse.day?.data?.overall_status)}</div>
+                                        <div className="text-[12px] text-gray-400 leading-relaxed">{safeString(unse.day?.data?.overall_desc)}</div>
+                                    </div>
+                                    {Array.isArray(unse.day?.data?.events) && unse.day.data.events.length > 0 && (
+                                        <div className="mt-auto pt-3 flex flex-col gap-2">
+                                            {unse.day.data.events.map((ev: any, i: number) => (
+                                                <div key={i} className={`p-3 rounded border ${ev.type === 'bad' ? 'bg-red-950/30 border-red-900/50' : 'bg-green-950/30 border-green-900/50'}`}>
+                                                    <div className={`font-bold text-[11px] mb-1 ${ev.type === 'bad' ? 'text-red-400' : 'text-green-400'}`}>{ev.title}</div>
+                                                    <div className="text-[10px] text-gray-500 leading-snug">{ev.desc}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {Array.isArray(timeline?.daewun?.timeline) && (
+                            <div>
+                                <h3 className="text-[11px] text-gray-500 mb-3 uppercase tracking-widest font-bold">10-Year Cycle (대운표)</h3>
+                                <div className="flex overflow-x-auto gap-2 pb-2 scrollbar-thin scrollbar-thumb-gray-700">
+                                    {timeline.daewun.timeline.map((dw: any, idx: number) => (
+                                        <div key={idx} className="min-w-20 bg-[#0a0a0c] p-3 rounded text-center border border-gray-800 flex flex-col items-center">
+                                            <div className="text-[10px] text-gray-500 mb-1 font-bold whitespace-nowrap">
+                                                {safeString(dw.stem_tg)} / {safeString(dw.branch_tg)}
+                                            </div>
+                                            <div className="text-lg font-black text-white">{dw.stem}{dw.branch}</div>
+                                            <div className="text-[10px] text-[#e74c3c] font-bold mt-1 font-mono">{dw.age}세</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {secret_readings && (
+                    <div className="bg-[#111318] rounded-xl border border-gray-800 shadow-xl overflow-hidden">
+                        <div className="bg-[#1a1c23] px-4 py-3 border-b border-gray-800">
+                            <h2 className="text-sm font-bold text-[#d4af37]">8. Secret Destiny (귀곡산명술 & 치명적 위기 스캔)</h2>
+                        </div>
+                        <div className="p-4 md:p-6 flex flex-col gap-6">
+                            
+                            {/* 귀곡산명술 */}
+                            {secret_readings.guiguzi && (
+                                <div className="bg-[#0a0a0c] p-5 rounded border border-gray-800 border-t-2 border-t-[#3498db] shadow-sm">
+                                    <h3 className="text-[12px] text-[#3498db] mb-3 font-bold uppercase flex items-center gap-2">
+                                        <span>📜 귀곡산명술 (연간-시간 조합 비문)</span>
+                                    </h3>
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <span className="bg-blue-900/20 text-[#3498db] px-2 py-1 rounded border border-blue-900/50 font-bold text-xs font-mono">
+                                            조합: {secret_readings.guiguzi.combination}
+                                        </span>
+                                    </div>
+                                    <div className="text-gray-300 text-[12px] leading-relaxed break-keep">
+                                        {secret_readings.guiguzi.description}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 치명적 위기 나이 (천극지충) */}
+                            {secret_readings.critical_ages && (
+                                <div className="bg-[#0a0a0c] p-5 rounded border border-gray-800 border-t-2 border-t-[#e74c3c] shadow-sm">
+                                    <h3 className="text-[12px] text-[#e74c3c] mb-3 font-bold uppercase flex items-center gap-2">
+                                        <span>⏳ 천극지충(天剋地沖) 붕괴 위기 연령</span>
+                                    </h3>
+                                    {secret_readings.critical_ages.ages && secret_readings.critical_ages.ages.length > 0 ? (
+                                        <div className="flex gap-2 mb-3">
+                                            {secret_readings.critical_ages.ages.map((age: number, idx: number) => (
+                                                <span key={idx} className="bg-red-900/30 text-red-400 font-bold text-xs px-3 py-1 rounded border border-red-900/50">
+                                                    {age}세
+                                                </span>
+                                            ))}
+                                        </div>
+                                    ) : null}
+                                    <div className="text-gray-400 text-[12px] leading-relaxed break-keep">
+                                        {secret_readings.critical_ages.message}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 잠복된 파멸의 흉살 (Secret Patterns) */}
+                            {Array.isArray(secret_readings.secret_patterns) && secret_readings.secret_patterns.length > 0 && (
+                                <div className="bg-[#0a0a0c] p-5 rounded border border-gray-800 border-t-2 border-t-[#9b59b6] shadow-sm">
+                                    <h3 className="text-[12px] text-[#9b59b6] mb-3 font-bold uppercase flex items-center gap-2">
+                                        <span>☠️ 원국 내 잠복된 극흉의 살기</span>
+                                    </h3>
+                                    <div className="flex flex-col gap-3">
+                                        {secret_readings.secret_patterns.map((pat: any, idx: number) => (
+                                            <div key={idx} className="bg-purple-950/20 p-3 rounded border border-purple-900/30">
+                                                <div className="text-[#9b59b6] font-bold text-[11px] mb-1">[{pat.name}]</div>
+                                                <div className="text-gray-400 text-[11px] leading-relaxed">{pat.warning}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                        </div>
+                    </div>
+                )}
+
+                {parsedClassical.length > 0 && (
+                    <div className="bg-[#111318] rounded-xl border border-gray-800 shadow-xl overflow-hidden">
+                        <div className="bg-[#1a1c23] px-4 py-3 border-b border-gray-800">
+                            <h2 className="text-sm font-bold text-[#d4af37]">9. Classical Readings (고전 엔진)</h2>
+                        </div>
+                        <div className="p-4 md:p-6 flex flex-col gap-6">
+                            {parsedClassical.map((block: any, idx: number) => (
+                                <div key={idx} className="bg-[#0a0a0c] p-5 md:p-6 rounded border border-gray-800">
+                                    {block.section && <h3 className="text-sm font-bold text-[#f1c40f] mb-4 pb-3 border-b border-gray-800/50 uppercase tracking-wide">{block.section}</h3>}
+                                    <div className="flex flex-col gap-5">
+                                        {Array.isArray(block.items) && block.items.map((item: any, i: number) => (
+                                            <div key={i} className="text-sm text-gray-300 leading-loose">
+                                                {item.title && (
+                                                    <div className="mb-1.5 flex items-end gap-2">
+                                                        <strong className="text-white text-sm">[{item.title}]</strong>
+                                                        {item.hanja && <span className="text-[11px] text-gray-500 font-serif">{item.hanja}</span>}
+                                                    </div>
+                                                )}
+                                                <p className="text-[13px] text-gray-400 font-light tracking-wide">{item.text}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {Array.isArray(napeum_reading) && napeum_reading.length > 0 && (
+                    <div className="bg-[#111318] rounded-xl border border-gray-800 shadow-xl overflow-hidden">
+                        <div className="bg-[#1a1c23] px-4 py-3 border-b border-gray-800">
+                            <h2 className="text-sm font-bold text-[#d4af37]">10. Napeum Frequency (납음오행 파동)</h2>
+                        </div>
+                        <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {napeum_reading.map((n: any, idx: number) => (
+                                <div key={idx} className="bg-[#0a0a0c] p-4 rounded border border-gray-800">
+                                    <div className="text-[#3498db] font-bold text-[11px] mb-1.5 uppercase">{safeString(n?.pillar)} : {safeString(n?.full)}</div>
+                                    <div className="text-gray-400 text-xs leading-relaxed">{safeString(n?.desc)}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
