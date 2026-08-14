@@ -1,41 +1,17 @@
+# logic_practical.py
+
 class PracticalEngine:
     def __init__(self):
-        # 1. 오행별 건강/질병 매핑 DB (🚨 성별 맞춤형 질병/장기 데이터 대폭 확장)
+        # 1. 오행별 건강/질병 매핑 DB
         self.health_map = {
-            "목": {
-                "organ": "간, 담낭, 신경계", 
-                "weak": "만성 피로, 신경쇠약, 우울증, 시력 저하", 
-                "excess": "간 수치 상승, 근육 뭉침, 분노 조절 어려움"
-            },
-            "화": {
-                "organ": "심장, 소장, 혈관", 
-                "weak": "수족냉증, 저혈압, 무기력, 심장 두근거림", 
-                "excess": "고혈압, 심혈관 질환, 다혈질, 불면증",
-                "excess_F": "갑상선 질환, 호르몬 불균형, 화병(울화통), 극심한 불면증",
-                "excess_M": "고혈압, 급성 심근경색, 뇌졸중, 다혈질"
-            },
-            "토": {
-                "organ": "위장, 비장, 소화기", 
-                "weak": "소화불량, 위염, 식욕 부진, 피부 트러블", 
-                "excess": "비만, 당뇨, 위궤양, 세포/종양 질환"
-            },
-            "금": {
-                "organ": "폐, 대장, 호흡기", 
-                "weak": "천식, 비염, 잦은 감기, 장 트러블", 
-                "excess": "호흡기 건조, 변비, 관절/뼈 질환"
-            },
-            "수": {
-                "organ": "신장, 방광, 생식기", 
-                "organ_M": "신장, 방광, 비뇨기/전립선",
-                "organ_F": "신장, 방광, 자궁/난소(산부인과)",
-                "weak_M": "신장 기능 저하, 생식기 약화, 만성 스태미나 부족",
-                "weak_F": "신장 기능 저하, 생리불순, 자궁 냉증, 호르몬 불균형",
-                "excess_M": "신장 결석, 전립선 질환, 수분 정체, 우울감",
-                "excess_F": "산부인과 질환, 극심한 수족냉증, 산후풍, 우울증"
-            }
+            "목": {"organ": "간, 담낭, 신경계", "weak": "만성 피로, 신경쇠약, 우울증, 시력 저하", "excess": "간 수치 상승, 근육 뭉침, 분노 조절 어려움"},
+            "화": {"organ": "심장, 소장, 혈관", "weak": "수족냉증, 저혈압, 무기력, 심장 두근거림", "excess": "고혈압, 심혈관 질환, 다혈질, 불면증"},
+            "토": {"organ": "위장, 비장, 소화기", "weak": "소화불량, 위염, 식욕 부진, 피부 트러블", "excess": "비만, 당뇨, 위궤양, 세포/종양 질환"},
+            "금": {"organ": "폐, 대장, 호흡기", "weak": "천식, 비염, 잦은 감기, 장 트러블", "excess": "호흡기 건조, 변비, 관절/뼈 질환"},
+            "수": {"organ": "신장, 방광, 생식기", "weak": "신장 기능 저하, 생식기 질환, 부종, 호르몬 불균형", "excess": "신장 결석, 냉증, 우울감, 산부인과/전립선 질환"}
         }
 
-        # 2. 십신(격국) 기반 현대 직업 매핑 DB (현대적 관점에서 남녀 공통 적용 유지)
+        # 2. 십신(격국) 기반 현대 직업 매핑 DB
         self.career_map = {
             "비견": {"style": "독립형 전문가", "jobs": "프리랜서, 1인 기업가, 운동선수, 지점장, 독자적 기술직"},
             "겁재": {"style": "승부사 및 투자가", "jobs": "M&A 전문가, 펀드매니저, 프로게이머, 경쟁이 치열한 영업직"},
@@ -49,42 +25,34 @@ class PracticalEngine:
             "정인": {"style": "교육가 및 학자", "jobs": "교수, 교사, 문서/부동산 임대업, 학원 사업, 출판업"}
         }
 
-    # 🚨 [핵심 패치] gender 파라미터 추가 및 성별에 따른 동적 증상 매핑
-    def analyze_health(self, elements_dist: dict, gender: str = "M") -> list:
+    def analyze_health(self, elements_dist: dict) -> list:
         """
         [헬스케어 질병 스캐너]
         오행의 분포(개수)를 분석하여 과다(3개 이상)하거나 
-        고립/태약(0개)한 오행을 찾아 취약한 장기를 성별에 맞게 진단합니다.
+        고립/태약(0개)한 오행을 찾아 취약한 장기를 진단합니다.
         """
         health_warnings = []
-        gen_key = "M" if str(gender).upper() == "M" else "F"
         
         for element, count in elements_dist.items():
             if count >= 3:
                 data = self.health_map[element]
-                target_organ = data.get(f"organ_{gen_key}", data["organ"])
-                target_symptom = data.get(f"excess_{gen_key}", data["excess"])
-                
                 health_warnings.append({
                     "element": element,
                     "status_code": "과다", # 🚨 프론트엔드가 텍스트 대신 이 코드로 조건 판별
                     "status": "과다 (기운이 너무 강해 병이 됨)",
-                    "organ": target_organ,
-                    "symptom": target_symptom,
-                    "advice": f"[{element}]의 기운이 사주에 너무 쏠려 있어 {target_organ} 쪽에 열성(熱性) 질환이나 과부하가 올 수 있습니다. 꾸준한 검진이 필요합니다."
+                    "organ": data["organ"],
+                    "symptom": data["excess"],
+                    "advice": f"[{element}]의 기운이 사주에 너무 쏠려 있어 {data['organ']} 쪽에 열성(熱性) 질환이나 과부하가 올 수 있습니다. 꾸준한 검진이 필요합니다."
                 })
             elif count == 0:
                 data = self.health_map[element]
-                target_organ = data.get(f"organ_{gen_key}", data["organ"])
-                target_symptom = data.get(f"weak_{gen_key}", data["weak"])
-                
                 health_warnings.append({
                     "element": element,
                     "status_code": "고립(無)", # 🚨 프론트엔드가 텍스트 대신 이 코드로 조건 판별
                     "status": "고립/태약 (기운이 없어 병이 됨)",
-                    "organ": target_organ,
-                    "symptom": target_symptom,
-                    "advice": f"사주 원국에 [{element}]의 기운이 메말라 있어 {target_organ} 기능이 선천적으로 약할 수 있습니다. 해당 부위의 면역력 관리에 각별히 신경 쓰십시오."
+                    "organ": data["organ"],
+                    "symptom": data["weak"],
+                    "advice": f"사주 원국에 [{element}]의 기운이 메말라 있어 {data['organ']} 기능이 선천적으로 약할 수 있습니다. 해당 부위의 면역력 관리에 각별히 신경 쓰십시오."
                 })
                 
         # 만약 심각한 불균형이 없다면 무난한 텍스트 추가

@@ -88,12 +88,6 @@ class UltimateGunghapEngine:
             "子": [1, 2], "午": [1, 2], "丑": [4, 5], "未": [4, 5], "寅": [7, 8], "申": [7, 8]
         }
 
-        # 🚨 [신규 추가] 천간 오행 맵핑 (변환기 로직용)
-        self.stem_elem = {
-            "甲": "목", "乙": "목", "丙": "화", "丁": "화", "戊": "토",
-            "己": "토", "庚": "금", "辛": "금", "壬": "수", "癸": "수"
-        }
-
     # ==========================================
     # 🛡️ 추가된 헬퍼 함수: 에러 원천 차단 
     # ==========================================
@@ -177,7 +171,7 @@ class UltimateGunghapEngine:
             h_str = str(yongshin.get("huishin", ""))
             needs_list = [e for e in [y_str, h_str] if e]
             
-            # 성별에 따른 십신(관성/재성) 심리적 니즈 분리
+            # 🚨 성별에 따른 십신(관성/재성) 심리적 니즈 분리
             if str(gender).upper() == 'F':
                 gender_role_desc = "여성분에게는 든든한 울타리와 책임감을 상징하는 '관성(官星)'의 역할이 중요합니다. 리더십이 강하고 당신을 포용력 있게 이끌어줄 수 있는 "
             else:
@@ -252,80 +246,37 @@ class UltimateGunghapEngine:
         return warnings
 
     # ==========================================
-    # 🚨 [버그 픽스] 십신 용어를 실제 오행(목화토금수)으로 번역하는 헬퍼 함수
+    # 🚨 [업그레이드 3] 오행 구원 쌍방향 크로스체크
     # ==========================================
-    def _translate_tg_to_element(self, day_stem: str, tg_string: str) -> list:
-        """
-        일간(태어난 날)과 십신 문자열(예: '인성', '비겁')을 조합하여 실제 필요한 오행(목,화,토,금,수) 리스트 반환
-        """
-        if not day_stem or day_stem == "-": return []
-        my_elem = self.stem_elem.get(day_stem)
-        if not my_elem: return []
-
-        generates = {"목": "화", "화": "토", "토": "금", "금": "수", "수": "목"}
-        overcomes = {"목": "토", "토": "수", "수": "화", "화": "금", "금": "목"}
-        supported_by = {v: k for k, v in generates.items()}
-        overcome_by = {v: k for k, v in overcomes.items()}
-
-        needed_elems = set()
-        
-        if "비견" in tg_string or "겁재" in tg_string or "비겁" in tg_string:
-            needed_elems.add(my_elem)
-        if "식신" in tg_string or "상관" in tg_string or "식상" in tg_string:
-            needed_elems.add(generates[my_elem])
-        if "편재" in tg_string or "정재" in tg_string or "재성" in tg_string:
-            needed_elems.add(overcomes[my_elem])
-        if "편관" in tg_string or "정관" in tg_string or "관성" in tg_string:
-            needed_elems.add(overcome_by[my_elem])
-        if "편인" in tg_string or "정인" in tg_string or "인성" in tg_string:
-            needed_elems.add(supported_by[my_elem])
-
-        # 만약 조후 용신 텍스트에 직관적으로 오행이 적혀있다면 직접 추가
-        for el in ["목", "화", "토", "금", "수"]:
-            if f"{el}(" in tg_string or f"{el} 에너지" in tg_string:
-                needed_elems.add(el)
-
-        return list(needed_elems)
-
-    # ==========================================
-    # 🚨 [업그레이드 3] 오행 구원 쌍방향 크로스체크 (버그 완벽 수정본)
-    # ==========================================
-    def calculate_elemental_salvation(self, m_bazi: dict, f_bazi: dict, m_yongshin: dict, f_yongshin: dict, m_elements: dict, f_elements: dict) -> dict:
+    def calculate_elemental_salvation(self, m_yongshin: dict, f_elements: dict, f_yongshin: dict, m_elements: dict) -> dict:
         try:
             m_yongshin = m_yongshin if isinstance(m_yongshin, dict) else {}
             f_yongshin = f_yongshin if isinstance(f_yongshin, dict) else {}
-            m_elements = m_elements if isinstance(m_elements, dict) else {}
             f_elements = f_elements if isinstance(f_elements, dict) else {}
+            m_elements = m_elements if isinstance(m_elements, dict) else {}
             
-            # 남녀 각자의 일간(Day Stem) 도출
-            m_day_stem = m_bazi.get("day", {}).get("stem", "") if isinstance(m_bazi, dict) else ""
-            f_day_stem = f_bazi.get("day", {}).get("stem", "") if isinstance(f_bazi, dict) else ""
-            
-            # 용신/희신 텍스트 합치기 (예: "인성(지식)식상(활동)")
-            m_need_str = str(m_yongshin.get("yongshin", "")) + str(m_yongshin.get("huishin", ""))
-            f_need_str = str(f_yongshin.get("yongshin", "")) + str(f_yongshin.get("huishin", ""))
-
-            # 🚨 십신 텍스트를 실제 필요한 오행(목화토금수)으로 번역
-            m_needed_elems = self._translate_tg_to_element(m_day_stem, m_need_str)
-            f_needed_elems = self._translate_tg_to_element(f_day_stem, f_need_str)
+            m_need = str(m_yongshin.get("yongshin", "")) + str(m_yongshin.get("huishin", ""))
+            f_need = str(f_yongshin.get("yongshin", "")) + str(f_yongshin.get("huishin", ""))
 
             def safe_count(val):
                 try: return int(val)
                 except: return 0
 
-            # 여자가 남자를 돕는가? (남자가 필요한 오행을 여자가 2개 이상 가졌는가)
+            # 여자가 남자를 돕는가?
             m_helped = False
-            for el in m_needed_elems:
-                if safe_count(f_elements.get(el, 0)) >= 2:
-                    m_helped = True
-                    break
+            if "목" in m_need and safe_count(f_elements.get("목", 0)) >= 2: m_helped = True
+            if "화" in m_need and safe_count(f_elements.get("화", 0)) >= 2: m_helped = True
+            if "토" in m_need and safe_count(f_elements.get("토", 0)) >= 2: m_helped = True
+            if "금" in m_need and safe_count(f_elements.get("금", 0)) >= 2: m_helped = True
+            if "수" in m_need and safe_count(f_elements.get("수", 0)) >= 2: m_helped = True
 
-            # 남자가 여자를 돕는가? (여자가 필요한 오행을 남자가 2개 이상 가졌는가)
+            # 남자가 여자를 돕는가?
             f_helped = False
-            for el in f_needed_elems:
-                if safe_count(m_elements.get(el, 0)) >= 2:
-                    f_helped = True
-                    break
+            if "목" in f_need and safe_count(m_elements.get("목", 0)) >= 2: f_helped = True
+            if "화" in f_need and safe_count(m_elements.get("화", 0)) >= 2: f_helped = True
+            if "토" in f_need and safe_count(m_elements.get("토", 0)) >= 2: f_helped = True
+            if "금" in f_need and safe_count(m_elements.get("금", 0)) >= 2: f_helped = True
+            if "수" in f_need and safe_count(m_elements.get("수", 0)) >= 2: f_helped = True
 
             if m_helped and f_helped:
                 return {
@@ -425,8 +376,7 @@ class UltimateGunghapEngine:
 
             return {
                 "fatal_warnings": self.scan_fatal_disasters(m_bazi, f_bazi, m_lunar_m_int, f_lunar_m_int),
-                # 🚨 [버그 픽스 완료] 번역기를 돌리기 위해 m_bazi와 f_bazi를 인자로 넘기도록 수정
-                "elemental_salvation": self.calculate_elemental_salvation(m_bazi, f_bazi, m_yongshin, f_yongshin, m_elements, f_elements),
+                "elemental_salvation": self.calculate_elemental_salvation(m_yongshin, f_elements, f_yongshin, m_elements),
                 "match_3d": self.analyze_3d_match(m_day, f_day),
                 "gugung_matrix": self.get_64_gugung_matrix(m_star_int, f_star_int)
             }

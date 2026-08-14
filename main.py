@@ -178,26 +178,35 @@ def adjust_korean_dst(dt: datetime) -> tuple[datetime, bool]:
 
 def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, apply_trad, lunar_m, unknown_time, real_lunar_m, real_lunar_d, is_dst_applied):
     
-    bazi_raw = astro_res.get("bazi", {})
-    y_stem, y_branch = bazi_raw["year_pillar"][0], bazi_raw["year_pillar"][1]
-    m_stem, m_branch = bazi_raw["month_pillar"][0], bazi_raw["month_pillar"][1]
-    d_stem, d_branch = bazi_raw["day_pillar"][0], bazi_raw["day_pillar"][1]
-    
-    if unknown_time:
-        h_stem, h_branch = "-", "-"
-    else:
-        h_stem, h_branch = bazi_raw["hour_pillar"][0], bazi_raw["hour_pillar"][1]
-    
+    try:
+        bazi_raw = astro_res.get("bazi", {})
+        y_stem, y_branch = bazi_raw.get("year_pillar", ["-", "-"])[0], bazi_raw.get("year_pillar", ["-", "-"])[1]
+        m_stem, m_branch = bazi_raw.get("month_pillar", ["-", "-"])[0], bazi_raw.get("month_pillar", ["-", "-"])[1]
+        d_stem, d_branch = bazi_raw.get("day_pillar", ["-", "-"])[0], bazi_raw.get("day_pillar", ["-", "-"])[1]
+        
+        if unknown_time:
+            h_stem, h_branch = "-", "-"
+        else:
+            h_stem, h_branch = bazi_raw.get("hour_pillar", ["-", "-"])[0], bazi_raw.get("hour_pillar", ["-", "-"])[1]
+    except Exception:
+        y_stem, y_branch, m_stem, m_branch, d_stem, d_branch, h_stem, h_branch = ["-"] * 8
+
     if apply_trad and lunar_m:
-        trad_m_stem, trad_m_branch = mech.get_traditional_month_pillar(y_stem, lunar_m)
-        if trad_m_stem and trad_m_branch: 
-            m_stem, m_branch = trad_m_stem, trad_m_branch
+        try:
+            trad_m_stem, trad_m_branch = mech.get_traditional_month_pillar(y_stem, lunar_m)
+            if trad_m_stem and trad_m_branch: 
+                m_stem, m_branch = trad_m_stem, trad_m_branch
+        except Exception:
+            pass
 
     day_master = d_stem
 
     def get_tg(stem_or_branch):
         if stem_or_branch == "-": return "-"
-        return mech.get_ten_god(day_master, stem_or_branch)
+        try:
+            return mech.get_ten_god(day_master, stem_or_branch)
+        except Exception:
+            return "-"
 
     bazi_data = {
         "year": {
@@ -222,12 +231,15 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
         }
     }
 
-    hidden_stems = {
-        "year": mech.get_hidden_stems(y_branch),
-        "month": mech.get_hidden_stems(m_branch),
-        "day": mech.get_hidden_stems(d_branch),
-        "hour": {"initial": ["-"], "middle": ["-"], "main": ["-"]} if unknown_time else mech.get_hidden_stems(h_branch)
-    }
+    try:
+        hidden_stems = {
+            "year": mech.get_hidden_stems(y_branch),
+            "month": mech.get_hidden_stems(m_branch),
+            "day": mech.get_hidden_stems(d_branch),
+            "hour": {"initial": ["-"], "middle": ["-"], "main": ["-"]} if unknown_time else mech.get_hidden_stems(h_branch)
+        }
+    except Exception:
+        hidden_stems = {}
 
     bazi_for_engine = {
         "year": bazi_data["year"], 
@@ -236,66 +248,135 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
         "hour": bazi_data["hour"]
     }
     
-    geokguk = yong.determine_geokguk(bazi_for_engine, hidden_stems)
-    strength = yong.determine_strength(bazi_for_engine)
-    yongshin_data = yong.determine_yongshin(bazi_for_engine, strength)
+    try:
+        geokguk = yong.determine_geokguk(bazi_for_engine, hidden_stems)
+        strength = yong.determine_strength(bazi_for_engine)
+        yongshin_data = yong.determine_yongshin(bazi_for_engine, strength)
+        geokguk["name_clean"] = geokguk.get("name_clean", geokguk.get("name", ""))
+        geokguk["hanja_clean"] = geokguk.get("hanja_clean", geokguk.get("hanja", ""))
+    except Exception as e:
+        logger.error(f"Yongshin Error: {e}")
+        geokguk, strength, yongshin_data = {}, {}, {}
 
-    geokguk["name_clean"] = geokguk.get("name_clean", geokguk.get("name", ""))
-    geokguk["hanja_clean"] = geokguk.get("hanja_clean", geokguk.get("hanja", ""))
-
-    valid_stems = [s for s in [y_stem, m_stem, d_stem, h_stem] if s != "-"]
-    valid_branches = [b for b in [y_branch, m_branch, d_branch, h_branch] if b != "-"]
-    elements_dist = mech.get_five_elements_distribution(valid_stems, valid_branches)
+    try:
+        valid_stems = [s for s in [y_stem, m_stem, d_stem, h_stem] if s != "-"]
+        valid_branches = [b for b in [y_branch, m_branch, d_branch, h_branch] if b != "-"]
+        elements_dist = mech.get_five_elements_distribution(valid_stems, valid_branches)
+    except Exception:
+        elements_dist = {}
     
-    career = prac.analyze_career(geokguk, yongshin_data)
-    # 🚨 [패치 1] 성별(gender) 변수 전달 완료
-    health_raw = prac.analyze_health(elements_dist, gender=gender)
+    try:
+        career = prac.analyze_career(geokguk, yongshin_data)
+    except Exception:
+        career = {}
+
+    try:
+        health_raw = prac.analyze_health(elements_dist, gender=gender)
+    except TypeError:
+        try:
+            health_raw = prac.analyze_health(elements_dist)
+        except Exception:
+            health_raw = []
+    except Exception:
+        health_raw = []
     
     elements_imbalance = []
     for h in health_raw:
-        if h["element"] != "종합":
+        if h.get("element") != "종합":
             elements_imbalance.append({
-                "element": h["element"], 
+                "element": h.get("element", ""), 
                 "type": h.get("status_code", "양호"), 
-                "original_status": h["status"], 
-                "count": elements_dist.get(h["element"], 0), 
-                "desc": h["advice"],
-                "organ": h.get("organ", ""),     # 🚨 [패치 2] 주의 장기 데이터 복원
-                "symptom": h.get("symptom", "")  # 🚨 [패치 3] 예상 증상 데이터 복원
+                "original_status": h.get("status", ""), 
+                "count": elements_dist.get(h.get("element", ""), 0), 
+                "desc": h.get("advice", ""),
+                "organ": h.get("organ", ""),     
+                "symptom": h.get("symptom", "")  
             })
 
-    special_stars = dyn.scan_special_stars({"year": y_stem, "month": m_stem, "day": d_stem, "hour": h_stem}, {"year": y_branch, "month": m_branch, "day": d_branch, "hour": h_branch})
-    disasters = dyn.scan_disasters(valid_branches)
-    classical_reading = clas.generate_classical_reading(bazi_for_engine, yongshin_data, strength, gender, real_lunar_m, real_lunar_d)
-    
-    tonggeun_branches = {"year": y_branch, "month": m_branch, "day": d_branch}
-    if not unknown_time: tonggeun_branches["hour"] = h_branch
-    tonggeun = mech.check_tonggeun(day_master, tonggeun_branches)
+    try:
+        special_stars = dyn.scan_special_stars({"year": y_stem, "month": m_stem, "day": d_stem, "hour": h_stem}, {"year": y_branch, "month": m_branch, "day": d_branch, "hour": h_branch})
+        disasters = dyn.scan_disasters(valid_branches)
+    except Exception:
+        special_stars, disasters = [], []
 
-    now_kst = datetime.utcnow() + timedelta(hours=9)
-    now_astro = astro.calculate_bazi(now_kst, gender)
-    now_y_b = now_astro["bazi"]["year_pillar"][1]
-    now_m_b = now_astro["bazi"]["month_pillar"][1]
-    now_d_b = now_astro["bazi"]["day_pillar"][1]
+    try:
+        classical_reading = clas.generate_classical_reading(bazi_for_engine, yongshin_data, strength, gender, real_lunar_m, real_lunar_d)
+    except TypeError:
+        try:
+            classical_reading = clas.generate_classical_reading(bazi_for_engine, yongshin_data, strength)
+        except Exception:
+            classical_reading = "고전 엔진 연산 중 오류가 발생했습니다."
+    except Exception as e:
+        logger.error(f"Classical Engine Error: {e}")
+        classical_reading = "고전 엔진 내부 연산 오류."
 
-    unse_data = {
-        "year": {**unse.analyze_sewun(bazi_for_engine, now_y_b, mech.get_ten_god(day_master, now_y_b), yongshin_data), "stem": now_astro["bazi"]["year_pillar"][0], "branch": now_y_b},
-        "month": {"month_num": now_kst.month, "stem": now_astro["bazi"]["month_pillar"][0], "branch": now_m_b, "data": unse.analyze_wolgeon(bazi_for_engine, now_m_b, mech.get_ten_god(day_master, now_m_b), yongshin_data)},
-        "day": {"day_num": now_kst.day, "stem": now_astro["bazi"]["day_pillar"][0], "branch": now_d_b, "data": unse.analyze_iljin(bazi_for_engine, now_d_b, mech.get_ten_god(day_master, now_d_b), yongshin_data)}
-    }
+    try:
+        tonggeun_branches = {"year": y_branch, "month": m_branch, "day": d_branch}
+        if not unknown_time: tonggeun_branches["hour"] = h_branch
+        tonggeun = mech.check_tonggeun(day_master, tonggeun_branches)
+    except Exception:
+        tonggeun = None
 
-    daewun_raw = mech.get_daewun_sequence(gender, y_stem, m_stem, m_branch, int(daewun_num), 10)
-    sewun_raw = mech.get_sewun_sequence(now_kst.year - 4, 10)
-    for dw in daewun_raw["timeline"]:
-        dw["stem_tg"] = get_tg(dw["stem"])
-        dw["branch_tg"] = get_tg(dw["branch"])
-    for sw in sewun_raw:
-        sw["stem_tg"] = get_tg(sw["stem"])
-        sw["branch_tg"] = get_tg(sw["branch"])
+    try:
+        now_kst = datetime.utcnow() + timedelta(hours=9)
+        now_astro = astro.calculate_bazi(now_kst, gender)
+        now_y_b = now_astro.get("bazi", {}).get("year_pillar", ["-", "-"])[1]
+        now_m_b = now_astro.get("bazi", {}).get("month_pillar", ["-", "-"])[1]
+        now_d_b = now_astro.get("bazi", {}).get("day_pillar", ["-", "-"])[1]
 
-    secret_readings_data = sec.get_secrets(bazi_for_engine, daewun_raw)
+        unse_data = {
+            "year": {**unse.analyze_sewun(bazi_for_engine, now_y_b, mech.get_ten_god(day_master, now_y_b), yongshin_data), "stem": now_astro.get("bazi", {}).get("year_pillar", ["-", "-"])[0], "branch": now_y_b},
+            "month": {"month_num": now_kst.month, "stem": now_astro.get("bazi", {}).get("month_pillar", ["-", "-"])[0], "branch": now_m_b, "data": unse.analyze_wolgeon(bazi_for_engine, now_m_b, mech.get_ten_god(day_master, now_m_b), yongshin_data)},
+            "day": {"day_num": now_kst.day, "stem": now_astro.get("bazi", {}).get("day_pillar", ["-", "-"])[0], "branch": now_d_b, "data": unse.analyze_iljin(bazi_for_engine, now_d_b, mech.get_ten_god(day_master, now_d_b), yongshin_data)}
+        }
+    except Exception as e:
+        logger.error(f"Unse Error: {e}")
+        unse_data = None
 
-    my_star = ghap.get_bonmyeongseong(dt_kst.year, gender)    
+    try:
+        daewun_raw = mech.get_daewun_sequence(gender, y_stem, m_stem, m_branch, int(daewun_num), 10)
+        if isinstance(daewun_raw, dict) and "timeline" in daewun_raw:
+            timeline_list = daewun_raw["timeline"]
+        elif isinstance(daewun_raw, list):
+            timeline_list = daewun_raw
+            daewun_raw = {"timeline": timeline_list}
+        else:
+            timeline_list = []
+            daewun_raw = {"timeline": []}
+            
+        for dw in timeline_list:
+            dw["stem_tg"] = get_tg(dw.get("stem", "-"))
+            dw["branch_tg"] = get_tg(dw.get("branch", "-"))
+    except Exception as e:
+        logger.error(f"Daewun sequence error (Backward Calculation Failed): {e}")
+        daewun_raw = {"timeline": []}
+        
+    try:
+        sewun_raw = mech.get_sewun_sequence(datetime.utcnow().year + 9 - 4, 10)
+        if isinstance(sewun_raw, list):
+            for sw in sewun_raw:
+                sw["stem_tg"] = get_tg(sw.get("stem", "-"))
+                sw["branch_tg"] = get_tg(sw.get("branch", "-"))
+        else:
+            sewun_raw = []
+    except Exception as e:
+        logger.error(f"Sewun sequence error: {e}")
+        sewun_raw = []
+
+    try:
+        secret_readings_data = sec.get_secrets(bazi_for_engine, daewun_raw)
+    except Exception:
+        secret_readings_data = None
+
+    try:
+        my_star = ghap.get_bonmyeongseong(dt_kst.year, gender)
+    except TypeError:
+        try:
+            my_star = ghap.get_bonmyeongseong(dt_kst.year)
+        except Exception:
+            my_star = {"number": 1, "name": "알 수 없음", "hanja": "無"}
+    except Exception:
+        my_star = {"number": 1, "name": "알 수 없음", "hanja": "無"}
 
     try:
         fengshui_honmyeong = feng.calculate_honmyeong_gung(dt_kst.year, gender)
@@ -305,7 +386,7 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
             "directions": fengshui_dirs
         }
     except Exception as e:
-        logger.error(f"FengShui Routing Error: {str(e)}", exc_info=True)
+        logger.error(f"FengShui Routing Error: {str(e)}")
         fengshui_data = None
 
     gunghap_data = None
@@ -320,20 +401,23 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
             p_lunar_m = partner_info.get("lunar_month", 1)
             
             p_astro = astro.calculate_bazi(p_dt, p_gender, p_lon, False if p_unk_time else True, True)
-            p_bazi_raw = p_astro["bazi"]
-            p_day_master = p_bazi_raw["day_pillar"][0]
+            p_bazi_raw = p_astro.get("bazi", {})
+            p_day_master = p_bazi_raw.get("day_pillar", ["-", "-"])[0]
             
             def get_p_tg(stem_or_branch):
                 if stem_or_branch == "-": return "-"
-                return mech.get_ten_god(p_day_master, stem_or_branch)
+                try:
+                    return mech.get_ten_god(p_day_master, stem_or_branch)
+                except:
+                    return "-"
 
-            p_h_s = "-" if p_unk_time else p_bazi_raw["hour_pillar"][0]
-            p_h_b = "-" if p_unk_time else p_bazi_raw["hour_pillar"][1]
+            p_h_s = "-" if p_unk_time else p_bazi_raw.get("hour_pillar", ["-", "-"])[0]
+            p_h_b = "-" if p_unk_time else p_bazi_raw.get("hour_pillar", ["-", "-"])[1]
 
             p_bazi_for_engine = {
-                "year": {"stem": p_bazi_raw["year_pillar"][0], "branch": p_bazi_raw["year_pillar"][1], "stem_tg": get_p_tg(p_bazi_raw["year_pillar"][0]), "branch_tg": get_p_tg(p_bazi_raw["year_pillar"][1])},
-                "month": {"stem": p_bazi_raw["month_pillar"][0], "branch": p_bazi_raw["month_pillar"][1], "stem_tg": get_p_tg(p_bazi_raw["month_pillar"][0]), "branch_tg": get_p_tg(p_bazi_raw["month_pillar"][1])},
-                "day": {"stem": p_bazi_raw["day_pillar"][0], "branch": p_bazi_raw["day_pillar"][1], "stem_tg": "일간", "branch_tg": get_p_tg(p_bazi_raw["day_pillar"][1])},
+                "year": {"stem": p_bazi_raw.get("year_pillar", ["-", "-"])[0], "branch": p_bazi_raw.get("year_pillar", ["-", "-"])[1], "stem_tg": get_p_tg(p_bazi_raw.get("year_pillar", ["-", "-"])[0]), "branch_tg": get_p_tg(p_bazi_raw.get("year_pillar", ["-", "-"])[1])},
+                "month": {"stem": p_bazi_raw.get("month_pillar", ["-", "-"])[0], "branch": p_bazi_raw.get("month_pillar", ["-", "-"])[1], "stem_tg": get_p_tg(p_bazi_raw.get("month_pillar", ["-", "-"])[0]), "branch_tg": get_p_tg(p_bazi_raw.get("month_pillar", ["-", "-"])[1])},
+                "day": {"stem": p_bazi_raw.get("day_pillar", ["-", "-"])[0], "branch": p_bazi_raw.get("day_pillar", ["-", "-"])[1], "stem_tg": "일간", "branch_tg": get_p_tg(p_bazi_raw.get("day_pillar", ["-", "-"])[1])},
                 "hour": {"stem": p_h_s, "branch": p_h_b, "stem_tg": get_p_tg(p_h_s), "branch_tg": get_p_tg(p_h_b)}
             }
             
@@ -344,7 +428,15 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
             p_strength = yong.determine_strength(p_bazi_for_engine)
             p_yongshin_data = yong.determine_yongshin(p_bazi_for_engine, p_strength)
 
-            p_star = ghap.get_bonmyeongseong(p_dt.year, p_gender)
+            try:
+                p_star = ghap.get_bonmyeongseong(p_dt.year, p_gender)
+            except TypeError:
+                try:
+                    p_star = ghap.get_bonmyeongseong(p_dt.year)
+                except Exception:
+                    p_star = {"number": 1, "name": "알 수 없음", "hanja": "無"}
+            except Exception:
+                p_star = {"number": 1, "name": "알 수 없음", "hanja": "無"}
             
             is_m = (gender == "M")
             m_bazi = bazi_for_engine if is_m else p_bazi_for_engine
@@ -384,26 +476,35 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
     else:
         try:
             ideal_partner_data = ghap.get_ideal_partner(bazi_for_engine, yongshin_data, my_star.get("number", 1), gender)
+        except TypeError:
+            try:
+                ideal_partner_data = ghap.get_ideal_partner(bazi_for_engine, yongshin_data, my_star.get("number", 1))
+            except Exception:
+                ideal_partner_data = None
         except Exception as e:
             logger.error(f"Ideal Partner Routing Error: {str(e)}", exc_info=True)
             ideal_partner_data = None
 
-    metadata_dict = {}
-    terms_to_fetch = set(["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸", "子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥", "비견", "겁재", "식신", "상관", "편재", "정재", "편관", "정관", "편인", "정인", "공망"])
-    for p in bazi_data.values():
-        terms_to_fetch.add(p['stem_tg'])
-        terms_to_fetch.add(p['branch_tg'])
-        
-    for term in terms_to_fetch:
-        if term and term != "일간" and term != "-": 
-            original_meta = mech.get_metadata(term)
-            if isinstance(original_meta, str):
-                meta = {"hanja": "", "meaning": original_meta}
-            elif isinstance(original_meta, dict):
-                meta = copy.deepcopy(original_meta)
-            else:
-                meta = {"hanja": "", "meaning": ""}
-            metadata_dict[term] = meta
+    try:
+        metadata_dict = {}
+        terms_to_fetch = set(["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸", "子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥", "비견", "겁재", "식신", "상관", "편재", "정재", "편관", "정관", "편인", "정인", "공망"])
+        for p in bazi_data.values():
+            terms_to_fetch.add(p.get('stem_tg', ''))
+            terms_to_fetch.add(p.get('branch_tg', ''))
+            
+        for term in terms_to_fetch:
+            if term and term != "일간" and term != "-": 
+                original_meta = mech.get_metadata(term)
+                if isinstance(original_meta, str):
+                    meta = {"hanja": "", "meaning": original_meta}
+                elif isinstance(original_meta, dict):
+                    meta = copy.deepcopy(original_meta)
+                else:
+                    meta = {"hanja": "", "meaning": ""}
+                metadata_dict[term] = meta
+    except Exception as e:
+        logger.error(f"Metadata fetch error: {e}")
+        metadata_dict = {}
 
     def get_napeum_desc(pillar_type, napeum_full):
         if not napeum_full or napeum_full == "-" or napeum_full == "알수없음": return "납음오행 정보가 없습니다."
@@ -424,9 +525,9 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
 
     return {
         "metadata": {
-            "origin_kst": astro_res["origin_time"],
-            "true_solar_time": astro_res["corrected_time"] if not unknown_time else "시간 모름 (보정 생략)",
-            "is_yaja_applied": astro_res["options"].get("yaja_applied", False),
+            "origin_kst": astro_res.get("origin_time", ""),
+            "true_solar_time": astro_res.get("corrected_time", "") if not unknown_time else "시간 모름 (보정 생략)",
+            "is_yaja_applied": astro_res.get("options", {}).get("yaja_applied", False),
             "is_dst_applied": is_dst_applied
         },
         "bazi_data": bazi_data,
@@ -627,19 +728,22 @@ def calendar_endpoint(request: Request, req: CalendarRequest):
         )
         
         bazi_raw = astro_res.get("bazi", {})
-        y_stem, y_branch = bazi_raw["year_pillar"][0], bazi_raw["year_pillar"][1]
-        m_stem, m_branch = bazi_raw["month_pillar"][0], bazi_raw["month_pillar"][1]
-        d_stem, d_branch = bazi_raw["day_pillar"][0], bazi_raw["day_pillar"][1]
+        y_stem, y_branch = bazi_raw.get("year_pillar", ["-", "-"])[0], bazi_raw.get("year_pillar", ["-", "-"])[1]
+        m_stem, m_branch = bazi_raw.get("month_pillar", ["-", "-"])[0], bazi_raw.get("month_pillar", ["-", "-"])[1]
+        d_stem, d_branch = bazi_raw.get("day_pillar", ["-", "-"])[0], bazi_raw.get("day_pillar", ["-", "-"])[1]
         day_master = d_stem
         
         if req.unknown_time:
             h_stem, h_branch = "-", "-"
         else:
-            h_stem, h_branch = bazi_raw["hour_pillar"][0], bazi_raw["hour_pillar"][1]
+            h_stem, h_branch = bazi_raw.get("hour_pillar", ["-", "-"])[0], bazi_raw.get("hour_pillar", ["-", "-"])[1]
 
         def get_tg(stem_or_branch):
             if stem_or_branch == "-": return "-"
-            return mech.get_ten_god(day_master, stem_or_branch)
+            try:
+                return mech.get_ten_god(day_master, stem_or_branch)
+            except Exception:
+                return "-"
 
         bazi_for_engine = {
             "year": {"stem": y_stem, "branch": y_branch, "stem_tg": get_tg(y_stem), "branch_tg": get_tg(y_branch)},
@@ -648,44 +752,49 @@ def calendar_endpoint(request: Request, req: CalendarRequest):
             "hour": {"stem": h_stem, "branch": h_branch, "stem_tg": get_tg(h_stem), "branch_tg": get_tg(h_branch)}
         }
         
-        strength = yong.determine_strength(bazi_for_engine)
-        yongshin_data = yong.determine_yongshin(bazi_for_engine, strength)
-        
-        y_str = str(yongshin_data.get("yongshin", ""))
-        h_str = str(yongshin_data.get("huishin", ""))
-        g_str = str(yongshin_data.get("gishin", ""))
+        try:
+            strength = yong.determine_strength(bazi_for_engine)
+            yongshin_data = yong.determine_yongshin(bazi_for_engine, strength)
+            y_str = str(yongshin_data.get("yongshin", ""))
+            h_str = str(yongshin_data.get("huishin", ""))
+            g_str = str(yongshin_data.get("gishin", ""))
+        except Exception:
+            y_str, h_str, g_str = "", "", ""
 
         days_in_month = calendar.monthrange(req.target_year, req.target_month)[1]
         days_array = []
 
         for day in range(1, days_in_month + 1):
-            target_dt = datetime(req.target_year, req.target_month, day, 12, 0)
-            daily_astro = astro.calculate_bazi(target_dt, req.gender.value)
-            
-            iljin_stem = daily_astro["bazi"]["day_pillar"][0]
-            iljin_branch = daily_astro["bazi"]["day_pillar"][1]
-            iljin_full = f"{iljin_stem}{iljin_branch}"
-            
-            iljin_tg = mech.get_ten_god(day_master, iljin_branch)
-            branch_elem = unse._get_element(iljin_branch)
-            
-            status = "평(平)"
-            advice = "평온하고 무난한 하루입니다. 특별한 굴곡 없이 일상을 유지하십시오."
-            
-            if branch_elem in y_str or branch_elem in h_str or iljin_tg in y_str or iljin_tg in h_str:
-                status = "길(吉)"
-                advice = "수호신의 기운이 돕는 길일입니다. 중요한 계약이나 만남을 추진하기에 매우 좋습니다."
-            elif branch_elem in g_str or iljin_tg in g_str:
-                status = "흉(凶)"
-                advice = "기운이 탁해지고 판단력이 흐려지는 날입니다. 중요한 결정은 미루고 수성하십시오."
+            try:
+                target_dt = datetime(req.target_year, req.target_month, day, 12, 0)
+                daily_astro = astro.calculate_bazi(target_dt, req.gender.value)
+                
+                iljin_stem = daily_astro.get("bazi", {}).get("day_pillar", ["-", "-"])[0]
+                iljin_branch = daily_astro.get("bazi", {}).get("day_pillar", ["-", "-"])[1]
+                iljin_full = f"{iljin_stem}{iljin_branch}"
+                
+                iljin_tg = get_tg(iljin_branch)
+                branch_elem = unse._get_element(iljin_branch) if hasattr(unse, '_get_element') else ""
+                
+                status = "평(平)"
+                advice = "평온하고 무난한 하루입니다. 특별한 굴곡 없이 일상을 유지하십시오."
+                
+                if branch_elem in y_str or branch_elem in h_str or iljin_tg in y_str or iljin_tg in h_str:
+                    status = "길(吉)"
+                    advice = "수호신의 기운이 돕는 길일입니다. 중요한 계약이나 만남을 추진하기에 매우 좋습니다."
+                elif branch_elem in g_str or iljin_tg in g_str:
+                    status = "흉(凶)"
+                    advice = "기운이 탁해지고 판단력이 흐려지는 날입니다. 중요한 결정은 미루고 수성하십시오."
 
-            days_array.append({
-                "date": target_dt.strftime("%Y-%m-%d"),
-                "iljin": iljin_full,
-                "iljin_tg": iljin_tg,
-                "status": status,
-                "advice": advice
-            })
+                days_array.append({
+                    "date": target_dt.strftime("%Y-%m-%d"),
+                    "iljin": iljin_full,
+                    "iljin_tg": iljin_tg,
+                    "status": status,
+                    "advice": advice
+                })
+            except Exception:
+                continue
 
         final_calendar_result = {
             "user_info": {
@@ -713,4 +822,5 @@ def calendar_endpoint(request: Request, req: CalendarRequest):
 @app.get("/")
 @limiter.limit("100/minute")
 def read_root(request: Request):
-    return {"message": "마스터 브릿지 API 가동 중 (Phase 5: Feng Shui Fully Synced)"}
+    return {"message": "마스터 브릿지 API 가동 중 (Phase 5: Safely Restored and Ultimate Bulletproof)"}
+
