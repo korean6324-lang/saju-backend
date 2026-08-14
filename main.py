@@ -18,7 +18,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 # ==========================================
-# 🌟 모든 엔진 총동원 (비전 엔진 추가 완료)
+# 🌟 모든 엔진 총동원 (비전 엔진 및 풍수 엔진 포함)
 # ==========================================
 from core_astro import CoreAstroEngine
 from core_mechanics import MechanicsEngine
@@ -30,7 +30,7 @@ from logic_practical import PracticalEngine
 from logic_unse import UnseEngine
 from logic_yongshin import YongshinEngine
 from logic_classical import ClassicalEngine 
-from logic_secret import SecretEngine # 🚨 비전 엔진 Import 추가
+from logic_secret import SecretEngine
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -60,7 +60,7 @@ prac = PracticalEngine()
 unse = UnseEngine()
 yong = YongshinEngine()
 clas = ClassicalEngine() 
-sec = SecretEngine() # 🚨 비전 엔진 객체 생성
+sec = SecretEngine() 
 
 BAZI_CACHE = TTLCache(maxsize=10000, ttl=86400)
 CALENDAR_CACHE = TTLCache(maxsize=5000, ttl=86400)    
@@ -287,10 +287,21 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
         sw["stem_tg"] = get_tg(sw["stem"])
         sw["branch_tg"] = get_tg(sw["branch"])
 
-    # 🚨 [핵심 패치 1] 비전 명리(SecretEngine) 연산 파이프라인 호출
-    secret_readings = sec.get_secrets(bazi_for_engine, daewun_raw)
+    secret_readings_data = sec.get_secrets(bazi_for_engine, daewun_raw)
 
     my_star = ghap.get_bonmyeongseong(dt_kst.year, gender)    
+
+    # 🚨 [풍수지리 데이터 복원] 엔진 호출 및 변수 할당 추가
+    try:
+        fengshui_honmyeong = feng.calculate_honmyeong_gung(dt_kst.year, gender)
+        fengshui_dirs = feng.get_auspicious_directions(fengshui_honmyeong.get("number", 1))
+        fengshui_data = {
+            "honmyeong": fengshui_honmyeong,
+            "directions": fengshui_dirs
+        }
+    except Exception as e:
+        logger.error(f"FengShui Routing Error: {str(e)}", exc_info=True)
+        fengshui_data = None
 
     gunghap_data = None
     ideal_partner_data = None
@@ -434,7 +445,8 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
             "timeline": {"daewun": daewun_raw, "sewun": sewun_raw},
             "gunghap": gunghap_data,
             "ideal_partner": ideal_partner_data,
-            "secret_readings": secret_readings, # 🚨 [핵심 패치 2] 비전 엔진 결과를 프론트로 전송
+            "secret_readings": secret_readings_data,
+            "fengshui": fengshui_data, # 🚨 [데이터 전송 복원] 프론트엔드로 풍수 데이터 발사!
             "classical": {"reading": classical_reading},
             "gender": "Male" if gender == "M" else "Female",
             "applied_traditional": apply_trad
@@ -696,4 +708,4 @@ def calendar_endpoint(request: Request, req: CalendarRequest):
 @app.get("/")
 @limiter.limit("100/minute")
 def read_root(request: Request):
-    return {"message": "마스터 브릿지 API 가동 중 (Phase 5: Secret Engine Fully Integrated)"}
+    return {"message": "마스터 브릿지 API 가동 중 (Phase 5: Feng Shui Fully Synced)"}
