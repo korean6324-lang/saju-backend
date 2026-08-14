@@ -89,7 +89,16 @@ class UltimateGunghapEngine:
         }
 
     # ==========================================
-    # 유틸리티 (본명성 추출용) - 🚨 100% 에러 방어
+    # 🛡️ 추가된 헬퍼 함수: 에러 원천 차단
+    # ==========================================
+    def _safe_int(self, val, default=0):
+        try:
+            return int(val)
+        except (ValueError, TypeError):
+            return default
+
+    # ==========================================
+    # 유틸리티 (본명성 추출용)
     # ==========================================
     def _split_name_hanja(self, raw_str: str) -> tuple:
         try:
@@ -101,6 +110,7 @@ class UltimateGunghapEngine:
         except Exception:
             return str(raw_str), ""
 
+    # 🚨 [핵심 패치 1] NoneType/문자열 충돌을 원천 차단하는 무적의 루트 넘버 연산기
     def _get_root_number(self, year) -> int:
         try:
             # None이나 빈 문자가 들어오면 즉시 기본값(1)을 뱉어 서버 다운을 막음
@@ -113,6 +123,7 @@ class UltimateGunghapEngine:
         except Exception:
             return 1
 
+    # 🚨 [핵심 패치 2] 에러가 나도 무조건 안전한 기본 별자리를 뱉어냅니다
     def get_bonmyeongseong(self, year, gender) -> dict:
         try:
             root_num = self._get_root_number(year)
@@ -125,42 +136,36 @@ class UltimateGunghapEngine:
             
             return {"number": star_num, "name": name_clean, "hanja": hanja_clean}
         except Exception:
+            # 서버 즉사 방지용 최후의 안전 객체 반환
             return {"number": 1, "name": "알 수 없음", "hanja": "無"}
 
-    # ==========================================
-    # 1. 치명적 위기 스캔 (🚨 NoneType 100% 방어 완료)
-    # ==========================================
-    def scan_fatal_disasters(self, m_bazi, f_bazi, m_lunar_m, f_lunar_m) -> list:
+    # 1. 치명적 위기 스캔 (내부 예외 발생 시 에러 무시)
+    def scan_fatal_disasters(self, m_bazi: dict, f_bazi: dict, m_lunar_m: int, f_lunar_m: int) -> list:
         warnings = []
         try:
             m_bazi = m_bazi if isinstance(m_bazi, dict) else {}
             f_bazi = f_bazi if isinstance(f_bazi, dict) else {}
             
-            m_year = m_bazi.get("year") if isinstance(m_bazi.get("year"), dict) else {}
-            m_year_branch = str(m_year.get("branch", ""))
+            m_year = m_bazi.get("year", {}) if isinstance(m_bazi, dict) else {}
+            m_year_branch = m_year.get("branch", "") if isinstance(m_year, dict) else ""
             
             if m_lunar_m and f_lunar_m:
-                ml = int(m_lunar_m)
-                fl = int(f_lunar_m)
-                if self.myeolmun_db.get(ml) == fl:
+                if self.myeolmun_db.get(m_lunar_m) == f_lunar_m:
                     warnings.append(
-                        f"【멸문살(滅門殺) 경고】 고서에 이르길 {ml}월생 남자와 {fl}월생 여자의 혼인은 가문을 쇠락하게 한다 하였습니다. 극도의 배려와 헌신이 없으면 파국을 피하기 어렵습니다."
+                        f"【멸문살(滅門殺) 경고】 고서에 이르길 {m_lunar_m}월생 남자와 {f_lunar_m}월생 여자의 혼인은 가문을 쇠락하게 한다 하였습니다. 극도의 배려와 헌신이 없으면 파국을 피하기 어렵습니다."
                     )
 
             if f_lunar_m and m_year_branch:
-                 fl = int(f_lunar_m)
-                 if fl in self.sangbu_db.get(m_year_branch, []):
+                 if f_lunar_m in self.sangbu_db.get(m_year_branch, []):
                      warnings.append(
-                        f"【상처살(喪妻殺) 경고】 남성의 띠({m_year_branch})와 여성의 생월({fl}월)이 부딪혀 여성의 수명을 위협하는 흉살이 잠복해 있습니다. 주말부부 등 물리적 거리를 강제하는 액땜이 필요합니다."
+                        f"【상처살(喪妻殺) 경고】 남성의 띠({m_year_branch})와 여성의 생월({f_lunar_m}월)이 부딪혀 여성의 수명을 위협하는 흉살이 잠복해 있습니다. 주말부부 등 물리적 거리를 강제하는 액땜이 필요합니다."
                      )
         except Exception:
             pass
         return warnings
 
-    # ==========================================
-    # 2. 오행 구원 조후 보완 (🚨 NoneType 100% 방어 완료)
-    # ==========================================
-    def calculate_elemental_salvation(self, m_yongshin, f_elements, f_yongshin, m_elements) -> dict:
+    # 2. 오행 구원 조후 보완
+    def calculate_elemental_salvation(self, m_yongshin: dict, f_elements: dict, f_yongshin: dict, m_elements: dict) -> dict:
         try:
             m_yongshin = m_yongshin if isinstance(m_yongshin, dict) else {}
             f_elements = f_elements if isinstance(f_elements, dict) else {}
@@ -170,6 +175,7 @@ class UltimateGunghapEngine:
             m_score = 0
             desc_list = []
 
+            # f_elements.get() 값이 문자열일 경우 int 변환, 실패 시 0 처리
             def safe_count(val):
                 try: return int(val)
                 except: return 0
@@ -186,20 +192,18 @@ class UltimateGunghapEngine:
             else:
                 return {"score": 50, "desc": "상대방의 사주에서 특별히 나를 강력하게 구원해 줄 수호 에너지는 보이지 않습니다. 각자의 자립심으로 위기를 헤쳐나가야 합니다."}
         except Exception:
-            return {"score": 50, "desc": "오행 분석에 필요한 데이터가 불충분합니다."}
+            return {"score": 0, "desc": "오행 분석에 필요한 데이터가 불충분합니다."}
 
-    # ==========================================
-    # 3. 입체적(3D) 속궁합 및 정신적 교감 (🚨 NoneType 100% 방어 완료)
-    # ==========================================
-    def analyze_3d_match(self, m_day_pillar, f_day_pillar) -> dict:
+    # 3. 입체적(3D) 속궁합 및 정신적 교감
+    def analyze_3d_match(self, m_day_pillar: dict, f_day_pillar: dict) -> dict:
         try:
             m_day_pillar = m_day_pillar if isinstance(m_day_pillar, dict) else {}
             f_day_pillar = f_day_pillar if isinstance(f_day_pillar, dict) else {}
             
-            m_stem = str(m_day_pillar.get("stem") or "")
-            f_stem = str(f_day_pillar.get("stem") or "")
-            m_branch = str(m_day_pillar.get("branch") or "")
-            f_branch = str(f_day_pillar.get("branch") or "")
+            m_stem = str(m_day_pillar.get("stem", ""))
+            f_stem = str(f_day_pillar.get("stem", ""))
+            m_branch = str(m_day_pillar.get("branch", ""))
+            f_branch = str(f_day_pillar.get("branch", ""))
 
             mental = {"status": "평범", "desc": "정신적으로 무난하게 타협 가능한 동반자입니다."}
             if {m_stem, f_stem} in [{"甲", "己"}, {"乙", "庚"}, {"丙", "辛"}, {"丁", "壬"}, {"戊", "癸"}]:
@@ -219,19 +223,14 @@ class UltimateGunghapEngine:
         except Exception:
             return {"mental": {"status": "분석 불가", "desc": "데이터 부족"}, "physical": {"status": "분석 불가", "pros": "-", "cons": "-"}}
 
-    # ==========================================
     # 4. 64구궁(본명성) 매트릭스 도출
-    # ==========================================
-    def get_64_gugung_matrix(self, m_star, f_star) -> dict:
+    def get_64_gugung_matrix(self, m_star: int, f_star: int) -> dict:
         try:
             if m_star is None or f_star is None:
                 return {"status": "알 수 없음", "classical": "無", "desc": "본명성 데이터가 부족하여 구궁팔괘 매트릭스를 계산할 수 없습니다."}
                 
-            m_int = int(m_star)
-            f_int = int(f_star)
-            
-            m_trigram = 2 if m_int == 5 else m_int
-            f_trigram = 8 if f_int == 5 else f_int
+            m_trigram = 2 if int(m_star) == 5 else int(m_star)
+            f_trigram = 8 if int(f_star) == 5 else int(f_star)
             
             combo_key = f"{m_trigram}_{f_trigram}"
             return self.gugung_matrix.get(combo_key, {
@@ -241,27 +240,49 @@ class UltimateGunghapEngine:
             return {"status": "연산 오류", "classical": "無", "desc": "매트릭스 도출 중 데이터 충돌이 발생했습니다."}
 
     # ==========================================
-    # 🚀 최종 융합 렌더링 파이프라인 (🚨 100% 500 에러 원천 봉쇄)
+    # 🚀 최종 융합 렌더링 파이프라인 (파라미터 기본값 할당 패치)
     # ==========================================
-    def get_ultimate_compatibility(self, m_bazi=None, f_bazi=None, m_lunar_m=None, f_lunar_m=None, m_yongshin=None, f_yongshin=None, m_elements=None, f_elements=None, m_star=None, f_star=None) -> dict:
+    def get_ultimate_compatibility(
+        self, 
+        m_bazi: dict = None, 
+        f_bazi: dict = None, 
+        m_lunar_m: int = 0, 
+        f_lunar_m: int = 0, 
+        m_yongshin: dict = None, 
+        f_yongshin: dict = None, 
+        m_elements: dict = None, 
+        f_elements: dict = None, 
+        m_star: int = None, 
+        f_star: int = None
+    ) -> dict:
         try:
             m_bazi = m_bazi if isinstance(m_bazi, dict) else {}
             f_bazi = f_bazi if isinstance(f_bazi, dict) else {}
             
-            m_day = m_bazi.get("day") if isinstance(m_bazi.get("day"), dict) else {}
-            f_day = f_bazi.get("day") if isinstance(f_bazi.get("day"), dict) else {}
+            m_day = m_bazi.get("day", {}) if isinstance(m_bazi, dict) and isinstance(m_bazi.get("day"), dict) else {}
+            f_day = f_bazi.get("day", {}) if isinstance(f_bazi, dict) and isinstance(f_bazi.get("day"), dict) else {}
+
+            def safe_int_param(val):
+                try: return int(val)
+                except: return 0
+
+            m_lunar_m_int = safe_int_param(m_lunar_m)
+            f_lunar_m_int = safe_int_param(f_lunar_m)
+
+            m_star_int = safe_int_param(m_star) if m_star is not None else None
+            f_star_int = safe_int_param(f_star) if f_star is not None else None
 
             return {
-                "fatal_warnings": self.scan_fatal_disasters(m_bazi, f_bazi, m_lunar_m, f_lunar_m),
+                "fatal_warnings": self.scan_fatal_disasters(m_bazi, f_bazi, m_lunar_m_int, f_lunar_m_int),
                 "elemental_salvation": self.calculate_elemental_salvation(m_yongshin, f_elements, f_yongshin, m_elements),
                 "match_3d": self.analyze_3d_match(m_day, f_day),
-                "gugung_matrix": self.get_64_gugung_matrix(m_star, f_star)
+                "gugung_matrix": self.get_64_gugung_matrix(m_star_int, f_star_int)
             }
         except Exception as e:
-            # 🚨 절대 죽지 않는 최후의 방어막! 어떤 미친 데이터가 들어와도 안전한 객체를 던져줍니다.
+            # 🚨 어떤 예외가 터져도 서버를 끄지 않고 결과를 반환합니다. 팝업이 뜨지 않게 됩니다!
             return {
-                "fatal_warnings": [f"시스템 오류 방어됨: {str(e)}"],
-                "elemental_salvation": {"score": 0, "desc": "데이터 불일치로 연산을 완료하지 못했습니다."},
-                "match_3d": {"mental": {"status": "오류", "desc": "-"}, "physical": {"status": "오류", "pros": "-", "cons": "-"}},
-                "gugung_matrix": {"status": "서버 방어 성공", "classical": "-", "desc": "데이터 전송 문제로 서버 다운을 막았습니다."}
+                "fatal_warnings": [f"엔진 연산 중 내부 오류가 방어되었습니다. ({str(e)})"],
+                "elemental_salvation": {"score": 0, "desc": "상대방 데이터 불균형으로 분석을 완료하지 못했습니다."},
+                "match_3d": {"mental": {"status": "분석 불가", "desc": "-"}, "physical": {"status": "분석 불가", "pros": "-", "cons": "-"}},
+                "gugung_matrix": {"status": "연산 중단", "classical": "無", "desc": "엔진 내부에서 알 수 없는 충돌을 방어했습니다."}
             }
