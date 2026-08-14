@@ -285,11 +285,12 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
         sw["stem_tg"] = get_tg(sw["stem"])
         sw["branch_tg"] = get_tg(sw["branch"])
 
-    # 싱글 유저와 커플 유저 공통으로 사용되는 '나의 본명성' 단일 연산 최적화
     my_star = ghap.get_bonmyeongseong(dt_kst.year, gender)    
 
-    # 파트너 연산 및 궁합 엔진 파이프라인
+    # 파트너 연산 및 이상형 처방전 엔진 파이프라인
     gunghap_data = None
+    ideal_partner_data = None
+    
     if partner_info:
         try:
             p_dt = partner_info["dt"]
@@ -349,7 +350,6 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
                 m_star=m_st, f_star=f_st
             )
             
-            # 엔진 연산 결과에 별자리 데이터를 명시적으로 삽입 (프론트엔드 호환성 보장)
             gunghap_data["my_star"] = my_star
             gunghap_data["partner_star"] = p_star
             
@@ -361,6 +361,13 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
                 "match_3d": {"mental": {"status": "오류"}, "physical": {"status": "오류"}},
                 "gugung_matrix": {"status": "오류", "desc": "엔진 렌더링 실패"}
             }
+    else:
+        # 🚨 [신규] 파트너가 없을 경우 역산형 이상형 처방전 획득
+        try:
+            ideal_partner_data = ghap.get_ideal_partner(bazi_for_engine, yongshin_data, my_star.get("number", 1), gender)
+        except Exception as e:
+            logger.error(f"Ideal Partner Routing Error: {str(e)}", exc_info=True)
+            ideal_partner_data = None
 
     metadata_dict = {}
     terms_to_fetch = set(["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸", "子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥", "비견", "겁재", "식신", "상관", "편재", "정재", "편관", "정관", "편인", "정인", "공망"])
@@ -406,7 +413,7 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
         "bazi_data": bazi_data,
         "hidden_stems": hidden_stems,
         "analysis_result": {
-            "my_star": my_star, # 🚨 [보존 유지] 싱글 유저 최상단 별자리 정보
+            "my_star": my_star, 
             "strength": strength,
             "geokguk": geokguk,
             "yongshin": yongshin_data,
@@ -423,15 +430,13 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
             "napeum_reading": napeum_reading,
             "timeline": {"daewun": daewun_raw, "sewun": sewun_raw},
             "gunghap": gunghap_data,
+            "ideal_partner": ideal_partner_data, # 🚨 [핵심] 처방전 프론트로 전송
             "classical": {"reading": classical_reading},
             "gender": "Male" if gender == "M" else "Female",
             "applied_traditional": apply_trad
         }
     }
 
-# ==========================================
-# 🚀 API 엔드포인트
-# ==========================================
 @app.get("/api/dictionary")
 @limiter.limit("30/minute")
 def dictionary_endpoint(request: Request, q: str = ""):

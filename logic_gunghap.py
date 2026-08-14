@@ -90,7 +90,6 @@ class UltimateGunghapEngine:
 
     # ==========================================
     # 🛡️ 추가된 헬퍼 함수: 에러 원천 차단 
-    # 프론트가 객체를 던지든 배열을 던지든 기어코 정수를 뽑아냅니다.
     # ==========================================
     def _extract_safe_int(self, val, default=0):
         if isinstance(val, dict):
@@ -145,6 +144,67 @@ class UltimateGunghapEngine:
             return {"number": star_num, "name": name_clean, "hanja": hanja_clean}
         except Exception:
             return {"number": 1, "name": "알 수 없음", "hanja": "無"}
+
+    # ==========================================
+    # 🚨 [신규 코어 로직] 싱글 유저 이상형(최고의 궁합) 역산 처방
+    # ==========================================
+    def get_ideal_partner(self, bazi: dict, yongshin: dict, star_num: int, gender: str) -> dict:
+        """ 파트너 정보가 없을 때, 나만의 완벽한 맞춤 이상형을 역산(Reverse-Engineering)합니다. """
+        try:
+            bazi = bazi if isinstance(bazi, dict) else {}
+            yongshin = yongshin if isinstance(yongshin, dict) else {}
+            
+            y_branch = bazi.get("year", {}).get("branch", "")
+            d_branch = bazi.get("day", {}).get("branch", "")
+            
+            animals = {"子":"쥐", "丑":"소", "寅":"호랑이", "卯":"토끼", "辰":"용", "巳":"뱀", "午":"말", "未":"양", "申":"원숭이", "酉":"닭", "戌":"개", "亥":"돼지"}
+            
+            # 삼합(4살 차이) 및 육합(최고의 결속력) 기준 매핑
+            samhap = {
+                "申":"쥐, 용", "子":"원숭이, 용", "辰":"원숭이, 쥐",
+                "亥":"토끼, 양", "卯":"돼지, 양", "未":"돼지, 토끼",
+                "寅":"말, 개", "午":"호랑이, 개", "戌":"호랑이, 말",
+                "巳":"닭, 소", "酉":"뱀, 소", "丑":"뱀, 닭"
+            }
+            yukhap = {"子":"소", "丑":"쥐", "寅":"돼지", "亥":"호랑이", "卯":"개", "戌":"토끼", "辰":"닭", "酉":"용", "巳":"원숭이", "申":"뱀", "午":"양", "未":"말"}
+            
+            my_animal = animals.get(y_branch, "")
+            
+            # 용신/희신 오행 추출
+            y_str = str(yongshin.get("yongshin", ""))
+            h_str = str(yongshin.get("huishin", ""))
+            needs_list = [e for e in [y_str, h_str] if e]
+            
+            if needs_list:
+                elements_desc = f"당신의 사주에 가장 절실한 수호 에너지인 [{', '.join(needs_list)}] 기운을 풍부하게 가진 사람을 만나야 합니다. 상대방의 사주에 이 기운이 많을수록 당신의 삶이 안정되고 재물운이 수직 상승합니다."
+            else:
+                elements_desc = "자신의 기운이 뚜렷하여 상대의 오행에 크게 기대지 않아도 되는 독립적인 명식입니다. 본인의 페이스를 유지할 수 있는 이해심 많은 상대를 찾으십시오."
+
+            # 64구궁 매트릭스를 역으로 돌려 나에게 '대길(생기, 천의, 연년)'을 주는 상대의 별자리 스캔
+            best_stars = []
+            star_num_int = self._extract_safe_int(star_num, default=1)
+            for i in range(1, 10):
+                if i == 5: continue
+                m_t = star_num_int if str(gender).upper() == 'M' else i
+                f_t = i if str(gender).upper() == 'M' else star_num_int
+                m_t = 2 if m_t == 5 else m_t
+                f_t = 8 if f_t == 5 else f_t
+                
+                key = f"{m_t}_{f_t}"
+                status = self.gugung_matrix.get(key, {}).get("status", "")
+                if status in ["생기(生氣)", "천의(天醫)", "연년(延年)"]:
+                    best_stars.append(f"{i}성")
+            
+            # 프론트엔드가 예쁘게 그려낼 수 있도록 키값을 최적화하여 반환
+            return {
+                "추천_나이와_띠": f"당신의 띠({my_animal}띠)를 기준으로 볼 때, '4살 차이'인 [{samhap.get(y_branch, '')}띠]와의 만남이 가장 이상적입니다. 4살 차이는 예로부터 궁합도 보지 않는다고 할 만큼 가치관이 잘 맞습니다. 또한 영혼의 단짝이라 불리는 육합 관계인 [{yukhap.get(y_branch, '')}띠]도 훌륭한 인연입니다.",
+                "영혼의_속궁합": f"일지(배우자궁)를 기준으로 당신과 육체적/정서적 교감이 완벽히 이루어지는 상대는 지지에 [{yukhap.get(d_branch, '')}띠] 기운을 가진 사람입니다. 이 기운을 가진 사람과는 대화가 깊이 통하고 맹목적인 끌림을 느낍니다.",
+                "최적의_오행_기운": elements_desc,
+                "천생연분_별자리": f"당신의 별자리와 64구궁팔괘 매트릭스를 역산해 보았을 때, 하늘의 축복을 받는 상대의 별자리(본명성)는 [{', '.join(best_stars)}]입니다. 이 별자리를 가진 사람과 맺어지면 천의(치유)와 생기(활력)를 얻어 무병장수하고 굳건한 백년해로를 이룹니다."
+            }
+            
+        except Exception as e:
+            return {"안내": "상세 이상형 처방을 계산할 수 없습니다. 사주 구조가 매우 특수합니다."}
 
     # 1. 치명적 위기 스캔
     def scan_fatal_disasters(self, m_bazi: dict, f_bazi: dict, m_lunar_m: int, f_lunar_m: int) -> list:
@@ -247,7 +307,6 @@ class UltimateGunghapEngine:
 
     # ==========================================
     # 🚀 최종 융합 렌더링 파이프라인
-    # (API 라우팅 시 타입 에러 422 튕김을 막기 위해 타입 힌트 삭제)
     # ==========================================
     def get_ultimate_compatibility(
         self, 
@@ -269,7 +328,6 @@ class UltimateGunghapEngine:
             m_day = m_bazi.get("day", {}) if isinstance(m_bazi, dict) and isinstance(m_bazi.get("day"), dict) else {}
             f_day = f_bazi.get("day", {}) if isinstance(f_bazi, dict) and isinstance(f_bazi.get("day"), dict) else {}
 
-            # _extract_safe_int 호출로 어떤 타입이 들어와도 정수로 우아하게 변환합니다.
             m_lunar_m_int = self._extract_safe_int(m_lunar_m)
             f_lunar_m_int = self._extract_safe_int(f_lunar_m)
             m_star_int = self._extract_safe_int(m_star, default=1)
