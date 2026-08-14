@@ -248,13 +248,8 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
     elements_dist = mech.get_five_elements_distribution(valid_stems, valid_branches)
     
     career = prac.analyze_career(geokguk, yongshin_data)
-    
-    # 🚨 [무적 방어 패치 1] 구버전 엔진일 경우 TypeError 방지
-    try:
-        health_raw = prac.analyze_health(elements_dist, gender=gender)
-    except TypeError:
-        # logic_practical.py가 아직 업데이트되지 않은 상태라면 구버전으로 우회 실행
-        health_raw = prac.analyze_health(elements_dist)
+    # 🚨 [패치 1] 성별(gender) 변수 전달 완료
+    health_raw = prac.analyze_health(elements_dist, gender=gender)
     
     elements_imbalance = []
     for h in health_raw:
@@ -265,8 +260,8 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
                 "original_status": h["status"], 
                 "count": elements_dist.get(h["element"], 0), 
                 "desc": h["advice"],
-                "organ": h.get("organ", ""),     
-                "symptom": h.get("symptom", "")  
+                "organ": h.get("organ", ""),     # 🚨 [패치 2] 주의 장기 데이터 복원
+                "symptom": h.get("symptom", "")  # 🚨 [패치 3] 예상 증상 데이터 복원
             })
 
     special_stars = dyn.scan_special_stars({"year": y_stem, "month": m_stem, "day": d_stem, "hour": h_stem}, {"year": y_branch, "month": m_branch, "day": d_branch, "hour": h_branch})
@@ -387,12 +382,8 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
                 "gugung_matrix": {"status": "오류", "desc": "엔진 렌더링 실패"}
             }
     else:
-        # 🚨 [무적 방어 패치 2] 구버전 엔진일 경우 TypeError 방지
         try:
             ideal_partner_data = ghap.get_ideal_partner(bazi_for_engine, yongshin_data, my_star.get("number", 1), gender)
-        except TypeError:
-            # logic_gunghap.py가 아직 업데이트되지 않은 상태라면 구버전으로 우회 실행
-            ideal_partner_data = ghap.get_ideal_partner(bazi_for_engine, yongshin_data, my_star.get("number", 1))
         except Exception as e:
             logger.error(f"Ideal Partner Routing Error: {str(e)}", exc_info=True)
             ideal_partner_data = None
@@ -722,4 +713,4 @@ def calendar_endpoint(request: Request, req: CalendarRequest):
 @app.get("/")
 @limiter.limit("100/minute")
 def read_root(request: Request):
-    return {"message": "마스터 브릿지 API 가동 중 (Phase 5: Safely Restored and Synced)"}
+    return {"message": "마스터 브릿지 API 가동 중 (Phase 5: Feng Shui Fully Synced)"}
