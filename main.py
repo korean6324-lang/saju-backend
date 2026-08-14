@@ -227,7 +227,6 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
         "hour": {"initial": ["-"], "middle": ["-"], "main": ["-"]} if unknown_time else mech.get_hidden_stems(h_branch)
     }
 
-    # 🚨 [Bug Fix] bazi_for_engine에 십신(Ten God) 복구 (용신 연산 오류 방지)
     bazi_for_engine = {
         "year": bazi_data["year"], 
         "month": bazi_data["month"],
@@ -286,7 +285,10 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
         sw["stem_tg"] = get_tg(sw["stem"])
         sw["branch_tg"] = get_tg(sw["branch"])
 
-    # 🚨 파트너 연산 및 궁합 엔진
+    # 싱글 유저와 커플 유저 공통으로 사용되는 '나의 본명성' 단일 연산 최적화
+    my_star = ghap.get_bonmyeongseong(dt_kst.year, gender)    
+
+    # 파트너 연산 및 궁합 엔진 파이프라인
     gunghap_data = None
     if partner_info:
         try:
@@ -300,7 +302,6 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
             p_bazi_raw = p_astro["bazi"]
             p_day_master = p_bazi_raw["day_pillar"][0]
             
-            # 🚨 [Bug Fix] 파트너용 십신 계산기 별도 생성 (에러 완벽 차단)
             def get_p_tg(stem_or_branch):
                 if stem_or_branch == "-": return "-"
                 return mech.get_ten_god(p_day_master, stem_or_branch)
@@ -322,7 +323,6 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
             p_strength = yong.determine_strength(p_bazi_for_engine)
             p_yongshin_data = yong.determine_yongshin(p_bazi_for_engine, p_strength)
 
-            my_star = ghap.get_bonmyeongseong(dt_kst.year, gender)
             p_star = ghap.get_bonmyeongseong(p_dt.year, p_gender)
             
             is_m = (gender == "M")
@@ -348,6 +348,10 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
                 m_elements=m_elem, f_elements=f_elem, 
                 m_star=m_st, f_star=f_st
             )
+            
+            # 엔진 연산 결과에 별자리 데이터를 명시적으로 삽입 (프론트엔드 호환성 보장)
+            gunghap_data["my_star"] = my_star
+            gunghap_data["partner_star"] = p_star
             
         except Exception as e:
             logger.error(f"Gunghap Routing Error: {str(e)}", exc_info=True)
@@ -402,6 +406,7 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
         "bazi_data": bazi_data,
         "hidden_stems": hidden_stems,
         "analysis_result": {
+            "my_star": my_star, # 🚨 [보존 유지] 싱글 유저 최상단 별자리 정보
             "strength": strength,
             "geokguk": geokguk,
             "yongshin": yongshin_data,
