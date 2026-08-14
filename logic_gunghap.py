@@ -88,18 +88,6 @@ class UltimateGunghapEngine:
             "子": [1, 2], "午": [1, 2], "丑": [4, 5], "未": [4, 5], "寅": [7, 8], "申": [7, 8]
         }
 
-    # ==========================================
-    # 🛡️ 추가된 헬퍼 함수: 에러 원천 차단
-    # ==========================================
-    def _safe_int(self, val, default=0):
-        try:
-            return int(val)
-        except (ValueError, TypeError):
-            return default
-
-    # ==========================================
-    # 유틸리티 (본명성 추출용)
-    # ==========================================
     def _split_name_hanja(self, raw_str: str) -> tuple:
         if "(" in raw_str and ")" in raw_str:
             parts = raw_str.split("(")
@@ -123,126 +111,138 @@ class UltimateGunghapEngine:
         
         return {"number": star_num, "name": name_clean, "hanja": hanja_clean}
 
-    # ==========================================
-    # 1. 치명적 위기 스캔 (🚨 문자열/None 방어 완료)
-    # ==========================================
+    # 1. 치명적 위기 스캔 (내부 예외 발생 시 에러 무시)
     def scan_fatal_disasters(self, m_bazi: dict, f_bazi: dict, m_lunar_m: int, f_lunar_m: int) -> list:
-        m_bazi = m_bazi or {}
-        f_bazi = f_bazi or {}
         warnings = []
-        
-        m_year_branch = (m_bazi.get("year") or {}).get("branch", "")
-        f_year_branch = (f_bazi.get("year") or {}).get("branch", "")
-        
-        safe_m_lunar = self._safe_int(m_lunar_m)
-        safe_f_lunar = self._safe_int(f_lunar_m)
-        
-        # [1] 멸문살 스캔
-        if safe_m_lunar and safe_f_lunar:
-            if self.myeolmun_db.get(safe_m_lunar) == safe_f_lunar:
-                warnings.append(
-                    f"【멸문살(滅門殺) 경고】 고서에 이르길 {safe_m_lunar}월생 남자와 {safe_f_lunar}월생 여자의 혼인은 가문을 쇠락하게 한다 하였습니다. 극도의 배려와 헌신이 없으면 파국을 피하기 어렵습니다."
-                )
+        try:
+            m_bazi = m_bazi if isinstance(m_bazi, dict) else {}
+            f_bazi = f_bazi if isinstance(f_bazi, dict) else {}
+            
+            m_year = m_bazi.get("year", {}) if isinstance(m_bazi, dict) else {}
+            m_year_branch = m_year.get("branch", "") if isinstance(m_year, dict) else ""
+            
+            if m_lunar_m and f_lunar_m:
+                if self.myeolmun_db.get(m_lunar_m) == f_lunar_m:
+                    warnings.append(
+                        f"【멸문살(滅門殺) 경고】 고서에 이르길 {m_lunar_m}월생 남자와 {f_lunar_m}월생 여자의 혼인은 가문을 쇠락하게 한다 하였습니다. 극도의 배려와 헌신이 없으면 파국을 피하기 어렵습니다."
+                    )
 
-        # [2] 상부상처살 스캔
-        if safe_f_lunar and m_year_branch:
-             if safe_f_lunar in self.sangbu_db.get(m_year_branch, []):
-                 warnings.append(
-                    f"【상처살(喪妻殺) 경고】 남성의 띠({m_year_branch})와 여성의 생월({safe_f_lunar}월)이 부딪혀 여성의 수명을 위협하는 흉살이 잠복해 있습니다. 주말부부 등 물리적 거리를 강제하는 액땜이 필요합니다."
-                 )
+            if f_lunar_m and m_year_branch:
+                 if f_lunar_m in self.sangbu_db.get(m_year_branch, []):
+                     warnings.append(
+                        f"【상처살(喪妻殺) 경고】 남성의 띠({m_year_branch})와 여성의 생월({f_lunar_m}월)이 부딪혀 여성의 수명을 위협하는 흉살이 잠복해 있습니다. 주말부부 등 물리적 거리를 강제하는 액땜이 필요합니다."
+                     )
+        except Exception:
+            pass
         return warnings
 
-    # ==========================================
-    # 2. 오행 구원 조후 보완 (🚨 문자열/None 방어 완료)
-    # ==========================================
+    # 2. 오행 구원 조후 보완
     def calculate_elemental_salvation(self, m_yongshin: dict, f_elements: dict, f_yongshin: dict, m_elements: dict) -> dict:
-        m_yongshin = m_yongshin or {}
-        f_elements = f_elements or {}
-        f_yongshin = f_yongshin or {}
-        m_elements = m_elements or {}
-        
-        m_need = str(m_yongshin.get("yongshin", ""))
-        f_need = str(f_yongshin.get("yongshin", ""))
-        
-        m_score = 0
-        desc_list = []
-
-        # 💡 [핵심] f_elements에서 뽑은 값이 문자열 "2"여도 에러가 나지 않도록 _safe_int 사용
-        if "목" in m_need and self._safe_int(f_elements.get("목", 0)) >= 2: m_score += 1
-        if "화" in m_need and self._safe_int(f_elements.get("화", 0)) >= 2: m_score += 1
-        if "토" in m_need and self._safe_int(f_elements.get("토", 0)) >= 2: m_score += 1
-        if "금" in m_need and self._safe_int(f_elements.get("금", 0)) >= 2: m_score += 1
-        if "수" in m_need and self._safe_int(f_elements.get("수", 0)) >= 2: m_score += 1
-
-        if m_score > 0:
-            desc_list.append(f"여성의 사주에 남성이 간절히 필요로 하는 수호 에너지({m_need})가 풍부하여 남성의 막힌 숨통을 틔워줍니다.")
-
-        if m_score > 0:
-            return {"score": 85, "desc": " ".join(desc_list) + " 서로가 서로의 부족한 기운을 완벽히 채워주는 생명의 은인 같은 결합입니다."}
-        else:
-            return {"score": 50, "desc": "상대방의 사주에서 특별히 나를 강력하게 구원해 줄 수호 에너지는 보이지 않습니다. 각자의 자립심으로 위기를 헤쳐나가야 합니다."}
-
-    # ==========================================
-    # 3. 입체적(3D) 속궁합 및 정신적 교감
-    # ==========================================
-    def analyze_3d_match(self, m_day_pillar: dict, f_day_pillar: dict) -> dict:
-        m_day_pillar = m_day_pillar or {}
-        f_day_pillar = f_day_pillar or {}
-        
-        m_stem = str(m_day_pillar.get("stem", ""))
-        f_stem = str(f_day_pillar.get("stem", ""))
-        m_branch = str(m_day_pillar.get("branch", ""))
-        f_branch = str(f_day_pillar.get("branch", ""))
-
-        # 천간 (정신적 교감)
-        mental = {"status": "평범", "desc": "정신적으로 무난하게 타협 가능한 동반자입니다."}
-        if {m_stem, f_stem} in [{"甲", "己"}, {"乙", "庚"}, {"丙", "辛"}, {"丁", "壬"}, {"戊", "癸"}]:
-            mental = {"status": "천간합(天干合)", "desc": "가치관이 소름 돋게 일치하며, 대화가 밤새 끊이지 않는 영혼의 단짝입니다."}
-        elif {m_stem, f_stem} in [{"甲", "庚"}, {"乙", "辛"}, {"丙", "壬"}, {"丁", "癸"}]:
-            mental = {"status": "천간충(天干沖)", "desc": "생각하는 방식이 정반대입니다. 잦은 언쟁이 발생하나 서로의 맹점을 깨우쳐주기도 합니다."}
-
-        # 지지 (육체적 결합)
-        physical = {"status": "평범", "pros": "무던한 일상 유지", "cons": "다소 권태로울 수 있음"}
-        if {m_branch, f_branch} in [{"子", "丑"}, {"寅", "亥"}, {"卯", "戌"}, {"辰", "酉"}, {"巳", "申"}, {"午", "未"}]:
-            physical = {"status": "육합(六合)", "pros": "천생연분의 속궁합과 무한한 애정", "cons": "서로에게 갇혀 외부 대인관계가 단절될 우려"}
-        elif {m_branch, f_branch} in [{"子", "午"}, {"丑", "未"}, {"寅", "申"}, {"卯", "酉"}, {"辰", "戌"}, {"巳", "亥"}]:
-            physical = {"status": "충(沖)", "pros": "초반의 강렬한 스파크와 매력", "cons": "잦은 충돌과 좁혀지지 않는 현실적 거리감"}
-        elif {m_branch, f_branch} in [{"子", "未"}, {"丑", "午"}, {"寅", "酉"}, {"卯", "申"}, {"辰", "亥"}, {"巳", "戌"}]:
-            physical = {"status": "원진(怨嗔)", "pros": "자석 같은 치명적 끌림과 맹목적 집착", "cons": "서로를 뜯어먹는 피말리는 감정소모"}
-
-        return {"mental": mental, "physical": physical}
-
-    # ==========================================
-    # 4. 64구궁(본명성) 매트릭스 도출
-    # ==========================================
-    def get_64_gugung_matrix(self, m_star: int, f_star: int) -> dict:
-        m_star_safe = self._safe_int(m_star, None)
-        f_star_safe = self._safe_int(f_star, None)
-        
-        if m_star_safe is None or f_star_safe is None:
-            return {"status": "알 수 없음", "classical": "無", "desc": "본명성 데이터가 부족하여 구궁팔괘 매트릭스를 계산할 수 없습니다."}
+        try:
+            m_yongshin = m_yongshin if isinstance(m_yongshin, dict) else {}
+            f_elements = f_elements if isinstance(f_elements, dict) else {}
             
-        m_trigram = 2 if m_star_safe == 5 else m_star_safe
-        f_trigram = 8 if f_star_safe == 5 else f_star_safe
-        
-        combo_key = f"{m_trigram}_{f_trigram}"
-        return self.gugung_matrix.get(combo_key, {
-            "status": "알 수 없음", "classical": "無", "desc": "두 사람의 본명궁 조합 파동이 평범하여 극적인 길흉이 나타나지 않습니다."
-        })
+            m_need = str(m_yongshin.get("yongshin", ""))
+            
+            m_score = 0
+            desc_list = []
+
+            # f_elements.get() 값이 문자열일 경우 int 변환, 실패 시 0 처리
+            def safe_count(val):
+                try: return int(val)
+                except: return 0
+
+            if "목" in m_need and safe_count(f_elements.get("목", 0)) >= 2: m_score += 1
+            if "화" in m_need and safe_count(f_elements.get("화", 0)) >= 2: m_score += 1
+            if "토" in m_need and safe_count(f_elements.get("토", 0)) >= 2: m_score += 1
+            if "금" in m_need and safe_count(f_elements.get("금", 0)) >= 2: m_score += 1
+            if "수" in m_need and safe_count(f_elements.get("수", 0)) >= 2: m_score += 1
+
+            if m_score > 0:
+                desc_list.append(f"여성의 사주에 남성이 간절히 필요로 하는 수호 에너지({m_need})가 풍부하여 남성의 막힌 숨통을 틔워줍니다.")
+                return {"score": 85, "desc": " ".join(desc_list) + " 서로가 서로의 부족한 기운을 완벽히 채워주는 생명의 은인 같은 결합입니다."}
+            else:
+                return {"score": 50, "desc": "상대방의 사주에서 특별히 나를 강력하게 구원해 줄 수호 에너지는 보이지 않습니다. 각자의 자립심으로 위기를 헤쳐나가야 합니다."}
+        except Exception:
+            return {"score": 0, "desc": "오행 분석에 필요한 데이터가 불충분합니다."}
+
+    # 3. 입체적(3D) 속궁합 및 정신적 교감
+    def analyze_3d_match(self, m_day_pillar: dict, f_day_pillar: dict) -> dict:
+        try:
+            m_day_pillar = m_day_pillar if isinstance(m_day_pillar, dict) else {}
+            f_day_pillar = f_day_pillar if isinstance(f_day_pillar, dict) else {}
+            
+            m_stem = str(m_day_pillar.get("stem", ""))
+            f_stem = str(f_day_pillar.get("stem", ""))
+            m_branch = str(m_day_pillar.get("branch", ""))
+            f_branch = str(f_day_pillar.get("branch", ""))
+
+            mental = {"status": "평범", "desc": "정신적으로 무난하게 타협 가능한 동반자입니다."}
+            if {m_stem, f_stem} in [{"甲", "己"}, {"乙", "庚"}, {"丙", "辛"}, {"丁", "壬"}, {"戊", "癸"}]:
+                mental = {"status": "천간합(天干合)", "desc": "가치관이 소름 돋게 일치하며, 대화가 밤새 끊이지 않는 영혼의 단짝입니다."}
+            elif {m_stem, f_stem} in [{"甲", "庚"}, {"乙", "辛"}, {"丙", "壬"}, {"丁", "癸"}]:
+                mental = {"status": "천간충(天干沖)", "desc": "생각하는 방식이 정반대입니다. 잦은 언쟁이 발생하나 서로의 맹점을 깨우쳐주기도 합니다."}
+
+            physical = {"status": "평범", "pros": "무던한 일상 유지", "cons": "다소 권태로울 수 있음"}
+            if {m_branch, f_branch} in [{"子", "丑"}, {"寅", "亥"}, {"卯", "戌"}, {"辰", "酉"}, {"巳", "申"}, {"午", "未"}]:
+                physical = {"status": "육합(六合)", "pros": "천생연분의 속궁합과 무한한 애정", "cons": "서로에게 갇혀 외부 대인관계가 단절될 우려"}
+            elif {m_branch, f_branch} in [{"子", "午"}, {"丑", "未"}, {"寅", "申"}, {"卯", "酉"}, {"辰", "戌"}, {"巳", "亥"}]:
+                physical = {"status": "충(沖)", "pros": "초반의 강렬한 스파크와 매력", "cons": "잦은 충돌과 좁혀지지 않는 현실적 거리감"}
+            elif {m_branch, f_branch} in [{"子", "未"}, {"丑", "午"}, {"寅", "酉"}, {"卯", "申"}, {"辰", "亥"}, {"巳", "戌"}]:
+                physical = {"status": "원진(怨嗔)", "pros": "자석 같은 치명적 끌림과 맹목적 집착", "cons": "서로를 뜯어먹는 피말리는 감정소모"}
+
+            return {"mental": mental, "physical": physical}
+        except Exception:
+            return {"mental": {"status": "분석 불가", "desc": "데이터 부족"}, "physical": {"status": "분석 불가", "pros": "-", "cons": "-"}}
+
+    # 4. 64구궁(본명성) 매트릭스 도출
+    def get_64_gugung_matrix(self, m_star: int, f_star: int) -> dict:
+        try:
+            if m_star is None or f_star is None:
+                return {"status": "알 수 없음", "classical": "無", "desc": "본명성 데이터가 부족하여 구궁팔괘 매트릭스를 계산할 수 없습니다."}
+                
+            m_trigram = 2 if int(m_star) == 5 else int(m_star)
+            f_trigram = 8 if int(f_star) == 5 else int(f_star)
+            
+            combo_key = f"{m_trigram}_{f_trigram}"
+            return self.gugung_matrix.get(combo_key, {
+                "status": "알 수 없음", "classical": "無", "desc": "두 사람의 본명궁 조합 파동이 평범하여 극적인 길흉이 나타나지 않습니다."
+            })
+        except Exception:
+            return {"status": "연산 오류", "classical": "無", "desc": "매트릭스 도출 중 데이터 충돌이 발생했습니다."}
 
     # ==========================================
-    # 🚀 최종 융합 렌더링 파이프라인
+    # 🚀 최종 융합 렌더링 파이프라인 (절대 500 에러를 뿜지 않음)
     # ==========================================
     def get_ultimate_compatibility(self, m_bazi: dict, f_bazi: dict, m_lunar_m: int, f_lunar_m: int, m_yongshin: dict, f_yongshin: dict, m_elements: dict, f_elements: dict, m_star: int, f_star: int) -> dict:
-        m_bazi = m_bazi or {}
-        f_bazi = f_bazi or {}
-        
-        m_day = m_bazi.get("day", {})
-        f_day = f_bazi.get("day", {})
+        try:
+            m_bazi = m_bazi if isinstance(m_bazi, dict) else {}
+            f_bazi = f_bazi if isinstance(f_bazi, dict) else {}
+            
+            m_day = m_bazi.get("day", {}) if isinstance(m_bazi, dict) and isinstance(m_bazi.get("day"), dict) else {}
+            f_day = f_bazi.get("day", {}) if isinstance(f_bazi, dict) and isinstance(f_bazi.get("day"), dict) else {}
 
-        return {
-            "fatal_warnings": self.scan_fatal_disasters(m_bazi, f_bazi, m_lunar_m, f_lunar_m),
-            "elemental_salvation": self.calculate_elemental_salvation(m_yongshin, f_elements, f_yongshin, m_elements),
-            "match_3d": self.analyze_3d_match(m_day, f_day),
-            "gugung_matrix": self.get_64_gugung_matrix(m_star, f_star)
-        }
+            def safe_int_param(val):
+                try: return int(val)
+                except: return 0
+
+            m_lunar_m_int = safe_int_param(m_lunar_m)
+            f_lunar_m_int = safe_int_param(f_lunar_m)
+
+            m_star_int = safe_int_param(m_star) if m_star is not None else None
+            f_star_int = safe_int_param(f_star) if f_star is not None else None
+
+            return {
+                "fatal_warnings": self.scan_fatal_disasters(m_bazi, f_bazi, m_lunar_m_int, f_lunar_m_int),
+                "elemental_salvation": self.calculate_elemental_salvation(m_yongshin, f_elements, f_yongshin, m_elements),
+                "match_3d": self.analyze_3d_match(m_day, f_day),
+                "gugung_matrix": self.get_64_gugung_matrix(m_star_int, f_star_int)
+            }
+        except Exception as e:
+            # 🚨 어떤 예외가 터져도 서버를 끄지 않고 결과를 반환합니다. 팝업이 뜨지 않게 됩니다!
+            return {
+                "fatal_warnings": [f"엔진 연산 중 내부 오류가 방어되었습니다. ({str(e)})"],
+                "elemental_salvation": {"score": 0, "desc": "상대방 데이터 불균형으로 분석을 완료하지 못했습니다."},
+                "match_3d": {"mental": {"status": "분석 불가", "desc": "-"}, "physical": {"status": "분석 불가", "pros": "-", "cons": "-"}},
+                "gugung_matrix": {"status": "연산 중단", "classical": "無", "desc": "엔진 내부에서 알 수 없는 충돌을 방어했습니다."}
+            }
