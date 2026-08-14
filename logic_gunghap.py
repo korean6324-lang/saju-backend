@@ -88,28 +88,49 @@ class UltimateGunghapEngine:
             "子": [1, 2], "午": [1, 2], "丑": [4, 5], "未": [4, 5], "寅": [7, 8], "申": [7, 8]
         }
 
+    # ==========================================
+    # 유틸리티 (본명성 추출용)
+    # ==========================================
     def _split_name_hanja(self, raw_str: str) -> tuple:
-        if "(" in raw_str and ")" in raw_str:
+        if isinstance(raw_str, str) and "(" in raw_str and ")" in raw_str:
             parts = raw_str.split("(")
             return parts[0].strip(), parts[1].replace(")", "").strip()
-        return raw_str, ""
+        return str(raw_str), ""
 
+    # 🚨 [핵심 패치 1] NoneType/문자열 충돌을 원천 차단하는 무적의 루트 넘버 연산기
     def _get_root_number(self, year: int) -> int:
-        r = sum(int(digit) for digit in str(year))
-        while r > 9:
-            r = sum(int(digit) for digit in str(r))
-        return r
+        try:
+            # 어떤 쓰레기 값이 들어와도 숫자만 걸러냅니다 (None은 빈 문자열로)
+            year_str = "".join(filter(str.isdigit, str(year)))
+            if not year_str: 
+                return 1 # 숫자가 전혀 없으면 서버를 살리기 위해 기본값 1 반환
+                
+            r = sum(int(digit) for digit in year_str)
+            while r > 9:
+                r = sum(int(digit) for digit in str(r))
+            return r
+        except Exception:
+            return 1 # 최후의 방어선
 
+    # 🚨 [핵심 패치 2] 에러가 나도 무조건 안전한 기본 별자리를 뱉어냅니다
     def get_bonmyeongseong(self, year: int, gender: str) -> dict:
-        root_num = self._get_root_number(year)
-        if gender == 'M': star_num = (11 - root_num) % 9
-        else: star_num = (4 + root_num) % 9
-        if star_num == 0: star_num = 9
-        
-        star_full = self.stars[star_num]
-        name_clean, hanja_clean = self._split_name_hanja(star_full)
-        
-        return {"number": star_num, "name": name_clean, "hanja": hanja_clean}
+        try:
+            root_num = self._get_root_number(year)
+            if str(gender).upper() == 'M': 
+                star_num = (11 - root_num) % 9
+            else: 
+                star_num = (4 + root_num) % 9
+                
+            if star_num == 0: star_num = 9
+            
+            # 없는 숫자여도 에러나지 않게 .get 안전 추출
+            star_full = self.stars.get(star_num, "일백수성(一白水星)")
+            name_clean, hanja_clean = self._split_name_hanja(star_full)
+            
+            return {"number": star_num, "name": name_clean, "hanja": hanja_clean}
+        except Exception:
+            # 서버 즉사 방지용 최후의 안전 객체 반환
+            return {"number": 1, "name": "일백수성", "hanja": "一白水星"}
 
     # 1. 치명적 위기 스캔 (내부 예외 발생 시 에러 무시)
     def scan_fatal_disasters(self, m_bazi: dict, f_bazi: dict, m_lunar_m: int, f_lunar_m: int) -> list:
@@ -212,7 +233,7 @@ class UltimateGunghapEngine:
             return {"status": "연산 오류", "classical": "無", "desc": "매트릭스 도출 중 데이터 충돌이 발생했습니다."}
 
     # ==========================================
-    # 🚀 최종 융합 렌더링 파이프라인 (절대 500 에러를 뿜지 않음)
+    # 🚀 최종 융합 렌더링 파이프라인
     # ==========================================
     def get_ultimate_compatibility(self, m_bazi: dict, f_bazi: dict, m_lunar_m: int, f_lunar_m: int, m_yongshin: dict, f_yongshin: dict, m_elements: dict, f_elements: dict, m_star: int, f_star: int) -> dict:
         try:
@@ -239,7 +260,6 @@ class UltimateGunghapEngine:
                 "gugung_matrix": self.get_64_gugung_matrix(m_star_int, f_star_int)
             }
         except Exception as e:
-            # 🚨 어떤 예외가 터져도 서버를 끄지 않고 결과를 반환합니다. 팝업이 뜨지 않게 됩니다!
             return {
                 "fatal_warnings": [f"엔진 연산 중 내부 오류가 방어되었습니다. ({str(e)})"],
                 "elemental_salvation": {"score": 0, "desc": "상대방 데이터 불균형으로 분석을 완료하지 못했습니다."},
