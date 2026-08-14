@@ -89,9 +89,18 @@ class UltimateGunghapEngine:
         }
 
     # ==========================================
-    # 🛡️ 추가된 헬퍼 함수: 에러 원천 차단
+    # 🛡️ 추가된 헬퍼 함수: 에러 원천 차단 
+    # 프론트가 객체를 던지든 배열을 던지든 기어코 정수를 뽑아냅니다.
     # ==========================================
-    def _safe_int(self, val, default=0):
+    def _extract_safe_int(self, val, default=0):
+        if isinstance(val, dict):
+            if "number" in val:
+                try: return int(val["number"])
+                except: pass
+            for v in val.values():
+                if isinstance(v, int) or (isinstance(v, str) and v.isdigit()):
+                    return int(v)
+            return default
         try:
             return int(val)
         except (ValueError, TypeError):
@@ -110,10 +119,9 @@ class UltimateGunghapEngine:
         except Exception:
             return str(raw_str), ""
 
-    # 🚨 [핵심 패치 1] NoneType/문자열 충돌을 원천 차단하는 무적의 루트 넘버 연산기
+    # 🚨 [핵심 패치 1] NoneType/문자열 충돌 차단
     def _get_root_number(self, year) -> int:
         try:
-            # None이나 빈 문자가 들어오면 즉시 기본값(1)을 뱉어 서버 다운을 막음
             year_str = "".join(filter(str.isdigit, str(year)))
             if not year_str: return 1
             r = sum(int(digit) for digit in year_str)
@@ -123,7 +131,7 @@ class UltimateGunghapEngine:
         except Exception:
             return 1
 
-    # 🚨 [핵심 패치 2] 에러가 나도 무조건 안전한 기본 별자리를 뱉어냅니다
+    # 🚨 [핵심 패치 2] 기본 별자리 반환 안전장치
     def get_bonmyeongseong(self, year, gender) -> dict:
         try:
             root_num = self._get_root_number(year)
@@ -136,10 +144,9 @@ class UltimateGunghapEngine:
             
             return {"number": star_num, "name": name_clean, "hanja": hanja_clean}
         except Exception:
-            # 서버 즉사 방지용 최후의 안전 객체 반환
             return {"number": 1, "name": "알 수 없음", "hanja": "無"}
 
-    # 1. 치명적 위기 스캔 (내부 예외 발생 시 에러 무시)
+    # 1. 치명적 위기 스캔
     def scan_fatal_disasters(self, m_bazi: dict, f_bazi: dict, m_lunar_m: int, f_lunar_m: int) -> list:
         warnings = []
         try:
@@ -175,7 +182,6 @@ class UltimateGunghapEngine:
             m_score = 0
             desc_list = []
 
-            # f_elements.get() 값이 문자열일 경우 int 변환, 실패 시 0 처리
             def safe_count(val):
                 try: return int(val)
                 except: return 0
@@ -215,7 +221,7 @@ class UltimateGunghapEngine:
             if {m_branch, f_branch} in [{"子", "丑"}, {"寅", "亥"}, {"卯", "戌"}, {"辰", "酉"}, {"巳", "申"}, {"午", "未"}]:
                 physical = {"status": "육합(六合)", "pros": "천생연분의 속궁합과 무한한 애정", "cons": "서로에게 갇혀 외부 대인관계가 단절될 우려"}
             elif {m_branch, f_branch} in [{"子", "午"}, {"丑", "未"}, {"寅", "申"}, {"卯", "酉"}, {"辰", "戌"}, {"巳", "亥"}]:
-                physical = {"status": "충(沖)", "pros": "초반의 강렬한 스파크와 매력", "cons": "잦은 충돌과 좁혀지지 않는 현실적 거리감"}
+                physical = {"status": "충(沖)", "pros": "초반의 강렬한 스파크와 매력", "cons": "잦은 충돌과 좁혀지지 현실적 거리감"}
             elif {m_branch, f_branch} in [{"子", "未"}, {"丑", "午"}, {"寅", "酉"}, {"卯", "申"}, {"辰", "亥"}, {"巳", "戌"}]:
                 physical = {"status": "원진(怨嗔)", "pros": "자석 같은 치명적 끌림과 맹목적 집착", "cons": "서로를 뜯어먹는 피말리는 감정소모"}
 
@@ -226,7 +232,7 @@ class UltimateGunghapEngine:
     # 4. 64구궁(본명성) 매트릭스 도출
     def get_64_gugung_matrix(self, m_star: int, f_star: int) -> dict:
         try:
-            if m_star is None or f_star is None:
+            if m_star is None or f_star is None or m_star == 0 or f_star == 0:
                 return {"status": "알 수 없음", "classical": "無", "desc": "본명성 데이터가 부족하여 구궁팔괘 매트릭스를 계산할 수 없습니다."}
                 
             m_trigram = 2 if int(m_star) == 5 else int(m_star)
@@ -240,20 +246,21 @@ class UltimateGunghapEngine:
             return {"status": "연산 오류", "classical": "無", "desc": "매트릭스 도출 중 데이터 충돌이 발생했습니다."}
 
     # ==========================================
-    # 🚀 최종 융합 렌더링 파이프라인 (파라미터 기본값 할당 패치)
+    # 🚀 최종 융합 렌더링 파이프라인
+    # (API 라우팅 시 타입 에러 422 튕김을 막기 위해 타입 힌트 삭제)
     # ==========================================
     def get_ultimate_compatibility(
         self, 
-        m_bazi: dict = None, 
-        f_bazi: dict = None, 
-        m_lunar_m: int = 0, 
-        f_lunar_m: int = 0, 
-        m_yongshin: dict = None, 
-        f_yongshin: dict = None, 
-        m_elements: dict = None, 
-        f_elements: dict = None, 
-        m_star: int = None, 
-        f_star: int = None
+        m_bazi=None, 
+        f_bazi=None, 
+        m_lunar_m=None, 
+        f_lunar_m=None, 
+        m_yongshin=None, 
+        f_yongshin=None, 
+        m_elements=None, 
+        f_elements=None, 
+        m_star=None, 
+        f_star=None
     ) -> dict:
         try:
             m_bazi = m_bazi if isinstance(m_bazi, dict) else {}
@@ -262,15 +269,11 @@ class UltimateGunghapEngine:
             m_day = m_bazi.get("day", {}) if isinstance(m_bazi, dict) and isinstance(m_bazi.get("day"), dict) else {}
             f_day = f_bazi.get("day", {}) if isinstance(f_bazi, dict) and isinstance(f_bazi.get("day"), dict) else {}
 
-            def safe_int_param(val):
-                try: return int(val)
-                except: return 0
-
-            m_lunar_m_int = safe_int_param(m_lunar_m)
-            f_lunar_m_int = safe_int_param(f_lunar_m)
-
-            m_star_int = safe_int_param(m_star) if m_star is not None else None
-            f_star_int = safe_int_param(f_star) if f_star is not None else None
+            # _extract_safe_int 호출로 어떤 타입이 들어와도 정수로 우아하게 변환합니다.
+            m_lunar_m_int = self._extract_safe_int(m_lunar_m)
+            f_lunar_m_int = self._extract_safe_int(f_lunar_m)
+            m_star_int = self._extract_safe_int(m_star, default=1)
+            f_star_int = self._extract_safe_int(f_star, default=1)
 
             return {
                 "fatal_warnings": self.scan_fatal_disasters(m_bazi, f_bazi, m_lunar_m_int, f_lunar_m_int),
@@ -279,7 +282,6 @@ class UltimateGunghapEngine:
                 "gugung_matrix": self.get_64_gugung_matrix(m_star_int, f_star_int)
             }
         except Exception as e:
-            # 🚨 어떤 예외가 터져도 서버를 끄지 않고 결과를 반환합니다. 팝업이 뜨지 않게 됩니다!
             return {
                 "fatal_warnings": [f"엔진 연산 중 내부 오류가 방어되었습니다. ({str(e)})"],
                 "elemental_salvation": {"score": 0, "desc": "상대방 데이터 불균형으로 분석을 완료하지 못했습니다."},
