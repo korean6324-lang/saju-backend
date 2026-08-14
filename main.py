@@ -12,10 +12,7 @@ from pydantic import BaseModel, Field
 from korean_lunar_calendar import KoreanLunarCalendar
 import copy
 
-# 완벽한 LRU & TTL 캐싱을 위한 외부 라이브러리 도입
 from cachetools import TTLCache
-
-# Rate Limiting (디도스 및 매크로 방어)
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -34,13 +31,11 @@ from logic_unse import UnseEngine
 from logic_yongshin import YongshinEngine
 from logic_classical import ClassicalEngine 
 
-# 로깅 설정
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Myeongri Master Bridge API", version="4.0.0")
 
-# SlowAPI Rate Limiter 적용
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -232,11 +227,12 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
         "hour": {"initial": ["-"], "middle": ["-"], "main": ["-"]} if unknown_time else mech.get_hidden_stems(h_branch)
     }
 
+    # 🚨 [Bug Fix] bazi_for_engine에 십신(Ten God) 복구 (용신 연산 오류 방지)
     bazi_for_engine = {
-        "year": {"stem": y_stem, "branch": y_branch}, 
-        "month": {"stem": m_stem, "branch": m_branch},
-        "day": {"stem": d_stem, "branch": d_branch}, 
-        "hour": {"stem": h_stem, "branch": h_branch}
+        "year": bazi_data["year"], 
+        "month": bazi_data["month"],
+        "day": bazi_data["day"], 
+        "hour": bazi_data["hour"]
     }
     
     geokguk = yong.determine_geokguk(bazi_for_engine, hidden_stems)
@@ -290,7 +286,7 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
         sw["stem_tg"] = get_tg(sw["stem"])
         sw["branch_tg"] = get_tg(sw["branch"])
 
-    # 🚨 [Hotfix] 완벽하게 뜯어고친 파트너 연산 및 UltimateGunghapEngine 호출 로직
+    # 🚨 파트너 연산 및 궁합 엔진
     gunghap_data = None
     if partner_info:
         try:
@@ -300,18 +296,25 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
             p_unk_time = partner_info["unknown_time"]
             p_lunar_m = partner_info.get("lunar_month", 1)
             
-            # 1. 파트너 사주 추출
             p_astro = astro.calculate_bazi(p_dt, p_gender, p_lon, False if p_unk_time else True, True)
             p_bazi_raw = p_astro["bazi"]
+            p_day_master = p_bazi_raw["day_pillar"][0]
             
+            # 🚨 [Bug Fix] 파트너용 십신 계산기 별도 생성 (에러 완벽 차단)
+            def get_p_tg(stem_or_branch):
+                if stem_or_branch == "-": return "-"
+                return mech.get_ten_god(p_day_master, stem_or_branch)
+
+            p_h_s = "-" if p_unk_time else p_bazi_raw["hour_pillar"][0]
+            p_h_b = "-" if p_unk_time else p_bazi_raw["hour_pillar"][1]
+
             p_bazi_for_engine = {
-                "year": {"stem": p_bazi_raw["year_pillar"][0], "branch": p_bazi_raw["year_pillar"][1]},
-                "month": {"stem": p_bazi_raw["month_pillar"][0], "branch": p_bazi_raw["month_pillar"][1]},
-                "day": {"stem": p_bazi_raw["day_pillar"][0], "branch": p_bazi_raw["day_pillar"][1]},
-                "hour": {"stem": "-" if p_unk_time else p_bazi_raw["hour_pillar"][0], "branch": "-" if p_unk_time else p_bazi_raw["hour_pillar"][1]}
+                "year": {"stem": p_bazi_raw["year_pillar"][0], "branch": p_bazi_raw["year_pillar"][1], "stem_tg": get_p_tg(p_bazi_raw["year_pillar"][0]), "branch_tg": get_p_tg(p_bazi_raw["year_pillar"][1])},
+                "month": {"stem": p_bazi_raw["month_pillar"][0], "branch": p_bazi_raw["month_pillar"][1], "stem_tg": get_p_tg(p_bazi_raw["month_pillar"][0]), "branch_tg": get_p_tg(p_bazi_raw["month_pillar"][1])},
+                "day": {"stem": p_bazi_raw["day_pillar"][0], "branch": p_bazi_raw["day_pillar"][1], "stem_tg": "일간", "branch_tg": get_p_tg(p_bazi_raw["day_pillar"][1])},
+                "hour": {"stem": p_h_s, "branch": p_h_b, "stem_tg": get_p_tg(p_h_s), "branch_tg": get_p_tg(p_h_b)}
             }
             
-            # 2. 파트너 오행 및 용신 계산 (엔진 필수 재료)
             p_valid_stems = [p_bazi_for_engine[k]["stem"] for k in p_bazi_for_engine if p_bazi_for_engine[k]["stem"] != "-"]
             p_valid_branches = [p_bazi_for_engine[k]["branch"] for k in p_bazi_for_engine if p_bazi_for_engine[k]["branch"] != "-"]
             p_elements_dist = mech.get_five_elements_distribution(p_valid_stems, p_valid_branches)
@@ -319,13 +322,10 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
             p_strength = yong.determine_strength(p_bazi_for_engine)
             p_yongshin_data = yong.determine_yongshin(p_bazi_for_engine, p_strength)
 
-            # 3. 본명성 계산
             my_star = ghap.get_bonmyeongseong(dt_kst.year, gender)
             p_star = ghap.get_bonmyeongseong(p_dt.year, p_gender)
             
-            # 4. 남녀 구분 매핑 (엔진의 m_..., f_... 파라미터 매칭)
             is_m = (gender == "M")
-            
             m_bazi = bazi_for_engine if is_m else p_bazi_for_engine
             f_bazi = p_bazi_for_engine if is_m else bazi_for_engine
             
@@ -341,7 +341,6 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
             m_st = my_star.get("number", 1) if is_m else p_star.get("number", 1)
             f_st = p_star.get("number", 1) if is_m else my_star.get("number", 1)
 
-            # 5. 대망의 신규 궁합 엔진 호출 (구형 함수 호출 삭제)
             gunghap_data = ghap.get_ultimate_compatibility(
                 m_bazi=m_bazi, f_bazi=f_bazi, 
                 m_lunar_m=m_l_m, f_lunar_m=f_l_m, 
@@ -352,7 +351,6 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
             
         except Exception as e:
             logger.error(f"Gunghap Routing Error: {str(e)}", exc_info=True)
-            # 서버가 뻗는 것을 방지하고 프론트에 안전한 에러 데이터를 내려줌
             gunghap_data = {
                 "fatal_warnings": ["궁합 분석 중 엔진 내부 충돌이 발생하여 연산이 중단되었습니다."],
                 "elemental_salvation": {"score": 0, "desc": "데이터를 해석할 수 없습니다."},
@@ -519,7 +517,6 @@ def bazi_endpoint(request: Request, req: BaziRequest):
             else:
                 partner_dt = p_dt_kst
                 
-            # 🚨 [Hotfix] 파트너의 정확한 음력 월수를 추출하여 엔진에 넘길 준비 완료
             temp_cal = KoreanLunarCalendar()
             temp_cal.setSolarDate(partner_dt.year, partner_dt.month, partner_dt.day)
             p_lunar_month = temp_cal.lunarMonth
@@ -685,4 +682,4 @@ def calendar_endpoint(request: Request, req: CalendarRequest):
 @app.get("/")
 @limiter.limit("100/minute")
 def read_root(request: Request):
-    return {"message": "마스터 브릿지 API 가동 중 (Phase 5: Gunghap Engine Fully Synced)"}
+    return {"message": "마스터 브릿지 API 가동 중 (Phase 5: Gunghap Engine Fully Synced & Safe)"}
