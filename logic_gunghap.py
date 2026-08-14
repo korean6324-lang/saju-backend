@@ -89,6 +89,15 @@ class UltimateGunghapEngine:
         }
 
     # ==========================================
+    # 🛡️ 추가된 헬퍼 함수: 에러 원천 차단
+    # ==========================================
+    def _safe_int(self, val, default=0):
+        try:
+            return int(val)
+        except (ValueError, TypeError):
+            return default
+
+    # ==========================================
     # 유틸리티 (본명성 추출용)
     # ==========================================
     def _split_name_hanja(self, raw_str: str) -> tuple:
@@ -115,10 +124,9 @@ class UltimateGunghapEngine:
         return {"number": star_num, "name": name_clean, "hanja": hanja_clean}
 
     # ==========================================
-    # 1. 치명적 위기 스캔 (🚨 NoneType 100% 방어 완료)
+    # 1. 치명적 위기 스캔 (🚨 문자열/None 방어 완료)
     # ==========================================
     def scan_fatal_disasters(self, m_bazi: dict, f_bazi: dict, m_lunar_m: int, f_lunar_m: int) -> list:
-        # 인자 보호 (딕셔너리가 없으면 빈 딕셔너리로 초기화)
         m_bazi = m_bazi or {}
         f_bazi = f_bazi or {}
         warnings = []
@@ -126,22 +134,26 @@ class UltimateGunghapEngine:
         m_year_branch = (m_bazi.get("year") or {}).get("branch", "")
         f_year_branch = (f_bazi.get("year") or {}).get("branch", "")
         
+        safe_m_lunar = self._safe_int(m_lunar_m)
+        safe_f_lunar = self._safe_int(f_lunar_m)
+        
         # [1] 멸문살 스캔
-        if m_lunar_m and f_lunar_m:
-            if self.myeolmun_db.get(m_lunar_m) == f_lunar_m:
+        if safe_m_lunar and safe_f_lunar:
+            if self.myeolmun_db.get(safe_m_lunar) == safe_f_lunar:
                 warnings.append(
-                    f"【멸문살(滅門殺) 경고】 고서에 이르길 {m_lunar_m}월생 남자와 {f_lunar_m}월생 여자의 혼인은 가문을 쇠락하게 한다 하였습니다. 극도의 배려와 헌신이 없으면 파국을 피하기 어렵습니다."
+                    f"【멸문살(滅門殺) 경고】 고서에 이르길 {safe_m_lunar}월생 남자와 {safe_f_lunar}월생 여자의 혼인은 가문을 쇠락하게 한다 하였습니다. 극도의 배려와 헌신이 없으면 파국을 피하기 어렵습니다."
                 )
 
         # [2] 상부상처살 스캔
-        if f_lunar_m and f_lunar_m in self.sangbu_db.get(m_year_branch, []):
-             warnings.append(
-                f"【상처살(喪妻殺) 경고】 남성의 띠({m_year_branch})와 여성의 생월({f_lunar_m}월)이 부딪혀 여성의 수명을 위협하는 흉살이 잠복해 있습니다. 주말부부 등 물리적 거리를 강제하는 액땜이 필요합니다."
-             )
+        if safe_f_lunar and m_year_branch:
+             if safe_f_lunar in self.sangbu_db.get(m_year_branch, []):
+                 warnings.append(
+                    f"【상처살(喪妻殺) 경고】 남성의 띠({m_year_branch})와 여성의 생월({safe_f_lunar}월)이 부딪혀 여성의 수명을 위협하는 흉살이 잠복해 있습니다. 주말부부 등 물리적 거리를 강제하는 액땜이 필요합니다."
+                 )
         return warnings
 
     # ==========================================
-    # 2. 오행 구원 조후 보완 (🚨 NoneType 100% 방어 완료)
+    # 2. 오행 구원 조후 보완 (🚨 문자열/None 방어 완료)
     # ==========================================
     def calculate_elemental_salvation(self, m_yongshin: dict, f_elements: dict, f_yongshin: dict, m_elements: dict) -> dict:
         m_yongshin = m_yongshin or {}
@@ -155,11 +167,12 @@ class UltimateGunghapEngine:
         m_score = 0
         desc_list = []
 
-        if "목" in m_need and f_elements.get("목", 0) >= 2: m_score += 1
-        if "화" in m_need and f_elements.get("화", 0) >= 2: m_score += 1
-        if "토" in m_need and f_elements.get("토", 0) >= 2: m_score += 1
-        if "금" in m_need and f_elements.get("금", 0) >= 2: m_score += 1
-        if "수" in m_need and f_elements.get("수", 0) >= 2: m_score += 1
+        # 💡 [핵심] f_elements에서 뽑은 값이 문자열 "2"여도 에러가 나지 않도록 _safe_int 사용
+        if "목" in m_need and self._safe_int(f_elements.get("목", 0)) >= 2: m_score += 1
+        if "화" in m_need and self._safe_int(f_elements.get("화", 0)) >= 2: m_score += 1
+        if "토" in m_need and self._safe_int(f_elements.get("토", 0)) >= 2: m_score += 1
+        if "금" in m_need and self._safe_int(f_elements.get("금", 0)) >= 2: m_score += 1
+        if "수" in m_need and self._safe_int(f_elements.get("수", 0)) >= 2: m_score += 1
 
         if m_score > 0:
             desc_list.append(f"여성의 사주에 남성이 간절히 필요로 하는 수호 에너지({m_need})가 풍부하여 남성의 막힌 숨통을 틔워줍니다.")
@@ -170,16 +183,16 @@ class UltimateGunghapEngine:
             return {"score": 50, "desc": "상대방의 사주에서 특별히 나를 강력하게 구원해 줄 수호 에너지는 보이지 않습니다. 각자의 자립심으로 위기를 헤쳐나가야 합니다."}
 
     # ==========================================
-    # 3. 입체적(3D) 속궁합 및 정신적 교감 (🚨 NoneType 100% 방어 완료)
+    # 3. 입체적(3D) 속궁합 및 정신적 교감
     # ==========================================
     def analyze_3d_match(self, m_day_pillar: dict, f_day_pillar: dict) -> dict:
         m_day_pillar = m_day_pillar or {}
         f_day_pillar = f_day_pillar or {}
         
-        m_stem = m_day_pillar.get("stem", "")
-        f_stem = f_day_pillar.get("stem", "")
-        m_branch = m_day_pillar.get("branch", "")
-        f_branch = f_day_pillar.get("branch", "")
+        m_stem = str(m_day_pillar.get("stem", ""))
+        f_stem = str(f_day_pillar.get("stem", ""))
+        m_branch = str(m_day_pillar.get("branch", ""))
+        f_branch = str(f_day_pillar.get("branch", ""))
 
         # 천간 (정신적 교감)
         mental = {"status": "평범", "desc": "정신적으로 무난하게 타협 가능한 동반자입니다."}
@@ -203,8 +216,14 @@ class UltimateGunghapEngine:
     # 4. 64구궁(본명성) 매트릭스 도출
     # ==========================================
     def get_64_gugung_matrix(self, m_star: int, f_star: int) -> dict:
-        m_trigram = 2 if m_star == 5 else m_star
-        f_trigram = 8 if f_star == 5 else f_star
+        m_star_safe = self._safe_int(m_star, None)
+        f_star_safe = self._safe_int(f_star, None)
+        
+        if m_star_safe is None or f_star_safe is None:
+            return {"status": "알 수 없음", "classical": "無", "desc": "본명성 데이터가 부족하여 구궁팔괘 매트릭스를 계산할 수 없습니다."}
+            
+        m_trigram = 2 if m_star_safe == 5 else m_star_safe
+        f_trigram = 8 if f_star_safe == 5 else f_star_safe
         
         combo_key = f"{m_trigram}_{f_trigram}"
         return self.gugung_matrix.get(combo_key, {
@@ -212,11 +231,14 @@ class UltimateGunghapEngine:
         })
 
     # ==========================================
-    # 🚀 최종 융합 렌더링 파이프라인 (🚨 NoneType 100% 방어 완료)
+    # 🚀 최종 융합 렌더링 파이프라인
     # ==========================================
     def get_ultimate_compatibility(self, m_bazi: dict, f_bazi: dict, m_lunar_m: int, f_lunar_m: int, m_yongshin: dict, f_yongshin: dict, m_elements: dict, f_elements: dict, m_star: int, f_star: int) -> dict:
-        m_day = (m_bazi or {}).get("day", {})
-        f_day = (f_bazi or {}).get("day", {})
+        m_bazi = m_bazi or {}
+        f_bazi = f_bazi or {}
+        
+        m_day = m_bazi.get("day", {})
+        f_day = f_bazi.get("day", {})
 
         return {
             "fatal_warnings": self.scan_fatal_disasters(m_bazi, f_bazi, m_lunar_m, f_lunar_m),
