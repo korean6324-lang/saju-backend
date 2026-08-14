@@ -1,4 +1,4 @@
-import calendar # 최상단 import 영역에 추가
+import calendar
 import os
 import json
 import hashlib
@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from korean_lunar_calendar import KoreanLunarCalendar
 import copy
 
-# 🚨 [Hotfix 1] 완벽한 LRU & TTL 캐싱을 위한 외부 라이브러리 도입
+# 완벽한 LRU & TTL 캐싱을 위한 외부 라이브러리 도입
 from cachetools import TTLCache
 
 # Rate Limiting (디도스 및 매크로 방어)
@@ -21,7 +21,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 # ==========================================
-# 🌟 모든 엔진 총동원 (10개의 심장)
+# 🌟 모든 엔진 총동원
 # ==========================================
 from core_astro import CoreAstroEngine
 from core_mechanics import MechanicsEngine
@@ -34,18 +34,17 @@ from logic_unse import UnseEngine
 from logic_yongshin import YongshinEngine
 from logic_classical import ClassicalEngine 
 
-# 로깅(Logging) 설정
+# 로깅 설정
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Myeongri Master Bridge API", version="4.0.0")
 
-# SlowAPI Rate Limiter 적용 (IP당 분당 요청 횟수 제한)
+# SlowAPI Rate Limiter 적용
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS 환경변수 제어 (API 도둑질 방지)
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
@@ -66,11 +65,10 @@ unse = UnseEngine()
 yong = YongshinEngine()
 clas = ClassicalEngine() 
 
-# 🚨 [Hotfix 1] 결정론적 캐싱 & 시간 종속성 해결 (최대 10,000개, 24시간 후 자동 만료)
 BAZI_CACHE = TTLCache(maxsize=10000, ttl=86400)
+CALENDAR_CACHE = TTLCache(maxsize=5000, ttl=86400)    
 
 def get_cache_key(req_data: dict, today_str: str) -> str:
-    """요청 데이터와 '오늘 날짜'를 결합하여 해시 생성 (자정 갱신 보장)"""
     serialized = json.dumps(req_data, sort_keys=True) + today_str
     return hashlib.md5(serialized.encode('utf-8')).hexdigest()
 
@@ -158,14 +156,8 @@ class CalendarRequest(BaseModel):
     apply_yaja: bool = True
     apply_traditional_lunar: bool = False
     lunar_month: Optional[int] = None
-    
-    # 신규 추가: 타겟 연월 (디폴트: 현재 서버 날짜)
     target_year: int = Field(default_factory=lambda: (datetime.utcnow() + timedelta(hours=9)).year)
     target_month: int = Field(default_factory=lambda: (datetime.utcnow() + timedelta(hours=9)).month)
-
-# 🚨 [Calendar API] 캘린더 전용 독립 캐싱 레이어 (최대 5000개, 24시간 만료)
-CALENDAR_CACHE = TTLCache(maxsize=5000, ttl=86400)    
-
 
 def adjust_korean_dst(dt: datetime) -> tuple[datetime, bool]:
     dst_ranges = [
@@ -182,12 +174,10 @@ def adjust_korean_dst(dt: datetime) -> tuple[datetime, bool]:
         (datetime(1987, 5, 10, 2), datetime(1987, 10, 11, 3)),
         (datetime(1988, 5, 8, 2), datetime(1988, 10, 9, 3)),
     ]
-    
     for start, end in dst_ranges:
         if start <= dt < end:
             return dt - timedelta(hours=1), True
     return dt, False
-
 
 def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, apply_trad, lunar_m, unknown_time, real_lunar_m, real_lunar_d, is_dst_applied):
     
@@ -243,8 +233,10 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
     }
 
     bazi_for_engine = {
-        "year": bazi_data["year"], "month": bazi_data["month"],
-        "day": bazi_data["day"], "hour": bazi_data["hour"]
+        "year": {"stem": y_stem, "branch": y_branch}, 
+        "month": {"stem": m_stem, "branch": m_branch},
+        "day": {"stem": d_stem, "branch": d_branch}, 
+        "hour": {"stem": h_stem, "branch": h_branch}
     }
     
     geokguk = yong.determine_geokguk(bazi_for_engine, hidden_stems)
@@ -277,7 +269,6 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
     if not unknown_time: tonggeun_branches["hour"] = h_branch
     tonggeun = mech.check_tonggeun(day_master, tonggeun_branches)
 
-    # 🚨 [Hotfix 3] datetime.now() -> KST 하드코딩 (서버 타임존 문제 원천 차단)
     now_kst = datetime.utcnow() + timedelta(hours=9)
     now_astro = astro.calculate_bazi(now_kst, gender)
     now_y_b = now_astro["bazi"]["year_pillar"][1]
@@ -299,25 +290,75 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
         sw["stem_tg"] = get_tg(sw["stem"])
         sw["branch_tg"] = get_tg(sw["branch"])
 
+    # 🚨 [Hotfix] 완벽하게 뜯어고친 파트너 연산 및 UltimateGunghapEngine 호출 로직
     gunghap_data = None
     if partner_info:
-        p_dt = partner_info["dt"]
-        p_gender = partner_info["gender"]
-        p_lon = partner_info["longitude"]
-        p_unk_time = partner_info["unknown_time"]
-        
-        p_astro = astro.calculate_bazi(p_dt, p_gender, p_lon, False if p_unk_time else True, True)
-        p_day_branch = p_astro["bazi"]["day_pillar"][1]
+        try:
+            p_dt = partner_info["dt"]
+            p_gender = partner_info["gender"]
+            p_lon = partner_info["longitude"]
+            p_unk_time = partner_info["unknown_time"]
+            p_lunar_m = partner_info.get("lunar_month", 1)
+            
+            # 1. 파트너 사주 추출
+            p_astro = astro.calculate_bazi(p_dt, p_gender, p_lon, False if p_unk_time else True, True)
+            p_bazi_raw = p_astro["bazi"]
+            
+            p_bazi_for_engine = {
+                "year": {"stem": p_bazi_raw["year_pillar"][0], "branch": p_bazi_raw["year_pillar"][1]},
+                "month": {"stem": p_bazi_raw["month_pillar"][0], "branch": p_bazi_raw["month_pillar"][1]},
+                "day": {"stem": p_bazi_raw["day_pillar"][0], "branch": p_bazi_raw["day_pillar"][1]},
+                "hour": {"stem": "-" if p_unk_time else p_bazi_raw["hour_pillar"][0], "branch": "-" if p_unk_time else p_bazi_raw["hour_pillar"][1]}
+            }
+            
+            # 2. 파트너 오행 및 용신 계산 (엔진 필수 재료)
+            p_valid_stems = [p_bazi_for_engine[k]["stem"] for k in p_bazi_for_engine if p_bazi_for_engine[k]["stem"] != "-"]
+            p_valid_branches = [p_bazi_for_engine[k]["branch"] for k in p_bazi_for_engine if p_bazi_for_engine[k]["branch"] != "-"]
+            p_elements_dist = mech.get_five_elements_distribution(p_valid_stems, p_valid_branches)
+            
+            p_strength = yong.determine_strength(p_bazi_for_engine)
+            p_yongshin_data = yong.determine_yongshin(p_bazi_for_engine, p_strength)
 
-        my_star = ghap.get_bonmyeongseong(dt_kst.year, gender)
-        p_star = ghap.get_bonmyeongseong(p_dt.year, p_gender)
-        
-        gunghap_data = {
-            "my_samwon": ghap.get_samwon_gapja(dt_kst.year), "my_star": my_star,
-            "partner_samwon": ghap.get_samwon_gapja(p_dt.year), "partner_star": p_star,
-            "gugung": ghap.get_gugung_compatibility(my_star["number"], gender, p_star["number"], p_gender),
-            "inner": ghap.get_inner_compatibility(d_branch, p_day_branch)
-        }
+            # 3. 본명성 계산
+            my_star = ghap.get_bonmyeongseong(dt_kst.year, gender)
+            p_star = ghap.get_bonmyeongseong(p_dt.year, p_gender)
+            
+            # 4. 남녀 구분 매핑 (엔진의 m_..., f_... 파라미터 매칭)
+            is_m = (gender == "M")
+            
+            m_bazi = bazi_for_engine if is_m else p_bazi_for_engine
+            f_bazi = p_bazi_for_engine if is_m else bazi_for_engine
+            
+            m_l_m = real_lunar_m if is_m else p_lunar_m
+            f_l_m = p_lunar_m if is_m else real_lunar_m
+            
+            m_yong = yongshin_data if is_m else p_yongshin_data
+            f_yong = p_yongshin_data if is_m else yongshin_data
+            
+            m_elem = elements_dist if is_m else p_elements_dist
+            f_elem = p_elements_dist if is_m else elements_dist
+            
+            m_st = my_star.get("number", 1) if is_m else p_star.get("number", 1)
+            f_st = p_star.get("number", 1) if is_m else my_star.get("number", 1)
+
+            # 5. 대망의 신규 궁합 엔진 호출 (구형 함수 호출 삭제)
+            gunghap_data = ghap.get_ultimate_compatibility(
+                m_bazi=m_bazi, f_bazi=f_bazi, 
+                m_lunar_m=m_l_m, f_lunar_m=f_l_m, 
+                m_yongshin=m_yong, f_yongshin=f_yong, 
+                m_elements=m_elem, f_elements=f_elem, 
+                m_star=m_st, f_star=f_st
+            )
+            
+        except Exception as e:
+            logger.error(f"Gunghap Routing Error: {str(e)}", exc_info=True)
+            # 서버가 뻗는 것을 방지하고 프론트에 안전한 에러 데이터를 내려줌
+            gunghap_data = {
+                "fatal_warnings": ["궁합 분석 중 엔진 내부 충돌이 발생하여 연산이 중단되었습니다."],
+                "elemental_salvation": {"score": 0, "desc": "데이터를 해석할 수 없습니다."},
+                "match_3d": {"mental": {"status": "오류"}, "physical": {"status": "오류"}},
+                "gugung_matrix": {"status": "오류", "desc": "엔진 렌더링 실패"}
+            }
 
     metadata_dict = {}
     terms_to_fetch = set(["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸", "子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥", "비견", "겁재", "식신", "상관", "편재", "정재", "편관", "정관", "편인", "정인", "공망"])
@@ -403,7 +444,6 @@ def faq_endpoint(request: Request):
 @limiter.limit("15/minute")
 def bazi_endpoint(request: Request, req: BaziRequest):
     try:
-        # 🚨 [Hotfix 2] 캐시 키에 '서버의 오늘(KST)' 날짜 명시하여 자정 초기화 달성
         now_kst = datetime.utcnow() + timedelta(hours=9)
         today_str = now_kst.strftime("%Y-%m-%d")
         cache_key = get_cache_key(req.dict(), today_str)
@@ -412,7 +452,6 @@ def bazi_endpoint(request: Request, req: BaziRequest):
             logger.info("🔥 Bazi Cache Hit! CPU 연산 생략.")
             return BAZI_CACHE[cache_key]
 
-        # 경도 방어
         try:
             longitude = float(req.longitude) if req.longitude else 127.0
         except ValueError:
@@ -424,7 +463,7 @@ def bazi_endpoint(request: Request, req: BaziRequest):
             raise HTTPException(status_code=400, detail=f"날짜 형식이 올바르지 않습니다: {str(ve)}")
         
         if dt_input.year <= 1582:
-            raise HTTPException(status_code=400, detail="천체 역학 엔진(Ephem)의 정밀 연산 한계로 인해, 1582년 10월 이전의 날짜는 명식 추출이 불가능합니다.")
+            raise HTTPException(status_code=400, detail="1582년 10월 이전의 날짜는 연산이 불가능합니다.")
         
         if req.timezone != 9:
             dt_kst_base = dt_input - timedelta(hours=req.timezone) + timedelta(hours=9)
@@ -439,7 +478,7 @@ def bazi_endpoint(request: Request, req: BaziRequest):
             if cal.setLunarDate(dt_kst.year, dt_kst.month, dt_kst.day, is_leap):
                 dt_kst = datetime(cal.solarYear, cal.solarMonth, cal.solarDay, dt_kst.hour, dt_kst.minute)
             else:
-                raise HTTPException(status_code=400, detail="유효하지 않은 음력 날짜입니다. 윤달 여부를 확인해 주십시오.")
+                raise HTTPException(status_code=400, detail="유효하지 않은 음력 날짜입니다.")
         else:
             cal.setSolarDate(dt_kst.year, dt_kst.month, dt_kst.day)
 
@@ -480,7 +519,18 @@ def bazi_endpoint(request: Request, req: BaziRequest):
             else:
                 partner_dt = p_dt_kst
                 
-            partner_info = {"dt": partner_dt, "gender": req.partner_gender.value if req.partner_gender else None, "longitude": p_lon, "unknown_time": req.partner_unknown_time}
+            # 🚨 [Hotfix] 파트너의 정확한 음력 월수를 추출하여 엔진에 넘길 준비 완료
+            temp_cal = KoreanLunarCalendar()
+            temp_cal.setSolarDate(partner_dt.year, partner_dt.month, partner_dt.day)
+            p_lunar_month = temp_cal.lunarMonth
+                
+            partner_info = {
+                "dt": partner_dt, 
+                "gender": req.partner_gender.value if req.partner_gender else None, 
+                "longitude": p_lon, 
+                "unknown_time": req.partner_unknown_time,
+                "lunar_month": p_lunar_month
+            }
 
         final_result = build_bridge_response(
             dt_kst, astro_res, req.gender.value, req.daewun_num, partner_info, 
@@ -488,9 +538,7 @@ def bazi_endpoint(request: Request, req: BaziRequest):
             real_lunar_m, real_lunar_d, is_dst_applied
         )
 
-        # LRU 관리는 TTLCache 라이브러리가 알아서 통제함
         BAZI_CACHE[cache_key] = final_result
-
         return final_result
 
     except HTTPException as http_exc:
@@ -500,17 +548,13 @@ def bazi_endpoint(request: Request, req: BaziRequest):
         logger.error(f"Backend Server Error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="서버 내부 연산 중 예기치 않은 오류가 발생했습니다.")
 
-# ==========================================
-# 🚀 [신규] 맞춤형 일력(Daily Calendar) API 엔드포인트
-# ==========================================
 @app.post("/api/calendar")
-@limiter.limit("5/minute")  # 🚨 CTO 특별 지시: CPU 방어를 위한 강력한 락
+@limiter.limit("5/minute")
 def calendar_endpoint(request: Request, req: CalendarRequest):
     try:
         now_kst = datetime.utcnow() + timedelta(hours=9)
         today_str = now_kst.strftime("%Y-%m-%d")
         
-        # 캐시 키 생성 (타겟 연/월까지 포함하여 해시 충돌 방지)
         cache_seed = req.dict()
         cache_key = get_cache_key(cache_seed, today_str + f"_{req.target_year}_{req.target_month}")
         
@@ -518,7 +562,6 @@ def calendar_endpoint(request: Request, req: CalendarRequest):
             logger.info("📅 Calendar Cache Hit! 한 달 치 궤도 연산 생략.")
             return CALENDAR_CACHE[cache_key]
 
-        # 1. 유저의 사주 원국(Bazi) 연산 파이프라인 (기초 명식 추출)
         try:
             longitude = float(req.longitude) if req.longitude else 127.0
         except ValueError:
@@ -577,7 +620,6 @@ def calendar_endpoint(request: Request, req: CalendarRequest):
             "hour": {"stem": h_stem, "branch": h_branch, "stem_tg": get_tg(h_stem), "branch_tg": get_tg(h_branch)}
         }
         
-        # 용신/희신/기신 추출
         strength = yong.determine_strength(bazi_for_engine)
         yongshin_data = yong.determine_yongshin(bazi_for_engine, strength)
         
@@ -585,12 +627,10 @@ def calendar_endpoint(request: Request, req: CalendarRequest):
         h_str = str(yongshin_data.get("huishin", ""))
         g_str = str(yongshin_data.get("gishin", ""))
 
-        # 2. 캘린더 연산 파이프라인 (루프 처리)
         days_in_month = calendar.monthrange(req.target_year, req.target_month)[1]
         days_array = []
 
         for day in range(1, days_in_month + 1):
-            # 매일 낮 12시 00분을 기준으로 사주 연산
             target_dt = datetime(req.target_year, req.target_month, day, 12, 0)
             daily_astro = astro.calculate_bazi(target_dt, req.gender.value)
             
@@ -598,13 +638,9 @@ def calendar_endpoint(request: Request, req: CalendarRequest):
             iljin_branch = daily_astro["bazi"]["day_pillar"][1]
             iljin_full = f"{iljin_stem}{iljin_branch}"
             
-            # 일진 십신 계산
             iljin_tg = mech.get_ten_god(day_master, iljin_branch)
-            
-            # 오행 치환 (운세 엔진 로직 활용)
             branch_elem = unse._get_element(iljin_branch)
             
-            # 3. 길흉 판별 스코어링 로직
             status = "평(平)"
             advice = "평온하고 무난한 하루입니다. 특별한 굴곡 없이 일상을 유지하십시오."
             
@@ -623,7 +659,6 @@ def calendar_endpoint(request: Request, req: CalendarRequest):
                 "advice": advice
             })
 
-        # 4. JSON 응답(Response) 구조 강제
         final_calendar_result = {
             "user_info": {
                 "day_master": day_master,
@@ -637,7 +672,6 @@ def calendar_endpoint(request: Request, req: CalendarRequest):
             }
         }
 
-        # 결과 캐싱
         CALENDAR_CACHE[cache_key] = final_calendar_result
         return final_calendar_result
 
@@ -648,8 +682,7 @@ def calendar_endpoint(request: Request, req: CalendarRequest):
         logger.error(f"Calendar Engine Error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="캘린더 연산 중 예기치 않은 오류가 발생했습니다.")    
 
-# 🚨 [Hotfix 2] 루트 엔드포인트 방어막(Rate Limit) 추가 완료
 @app.get("/")
 @limiter.limit("100/minute")
 def read_root(request: Request):
-    return {"message": "마스터 브릿지 API 가동 중 (Phase 4: Timezone Safe, TTL Cache, Rate Limited)"}
+    return {"message": "마스터 브릿지 API 가동 중 (Phase 5: Gunghap Engine Fully Synced)"}
