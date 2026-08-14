@@ -8,7 +8,7 @@ class UltimateGunghapEngine:
         }
 
         # ==========================================
-        # [데이터 통합 완료] 64구궁팔괘 매트릭스 DB
+        # [데이터 통합 완료] 64구궁팔괘 매트릭스 DB (원본 100% 보존)
         # ==========================================
         self.gugung_matrix = {
             "1_1": {"status": "복위(伏位)", "classical": "輔弼知是半兒郞", "desc": "감궁(1) 남자와 감궁(1) 여자가 만나 보필성의 잔잔한 기운을 나눕니다. 평범하고 조용한 가문을 이어가는 무해무덕(無害無德)한 인연입니다."},
@@ -89,7 +89,7 @@ class UltimateGunghapEngine:
         }
 
     # ==========================================
-    # 유틸리티 (본명성 추출용 - 변경 없음)
+    # 유틸리티 (본명성 추출용)
     # ==========================================
     def _split_name_hanja(self, raw_str: str) -> tuple:
         if "(" in raw_str and ")" in raw_str:
@@ -115,12 +115,16 @@ class UltimateGunghapEngine:
         return {"number": star_num, "name": name_clean, "hanja": hanja_clean}
 
     # ==========================================
-    # 1. 치명적 위기 스캔 (로직 복구 완료)
+    # 1. 치명적 위기 스캔 (🚨 NoneType 100% 방어 완료)
     # ==========================================
     def scan_fatal_disasters(self, m_bazi: dict, f_bazi: dict, m_lunar_m: int, f_lunar_m: int) -> list:
+        # 인자 보호 (딕셔너리가 없으면 빈 딕셔너리로 초기화)
+        m_bazi = m_bazi or {}
+        f_bazi = f_bazi or {}
         warnings = []
-        m_year_branch = m_bazi.get("year", {}).get("branch", "")
-        f_year_branch = f_bazi.get("year", {}).get("branch", "")
+        
+        m_year_branch = (m_bazi.get("year") or {}).get("branch", "")
+        f_year_branch = (f_bazi.get("year") or {}).get("branch", "")
         
         # [1] 멸문살 스캔
         if m_lunar_m and f_lunar_m:
@@ -137,9 +141,14 @@ class UltimateGunghapEngine:
         return warnings
 
     # ==========================================
-    # 2. 오행 구원 조후 보완 (로직 복구 완료)
+    # 2. 오행 구원 조후 보완 (🚨 NoneType 100% 방어 완료)
     # ==========================================
     def calculate_elemental_salvation(self, m_yongshin: dict, f_elements: dict, f_yongshin: dict, m_elements: dict) -> dict:
+        m_yongshin = m_yongshin or {}
+        f_elements = f_elements or {}
+        f_yongshin = f_yongshin or {}
+        m_elements = m_elements or {}
+        
         m_need = str(m_yongshin.get("yongshin", ""))
         f_need = str(f_yongshin.get("yongshin", ""))
         
@@ -161,11 +170,16 @@ class UltimateGunghapEngine:
             return {"score": 50, "desc": "상대방의 사주에서 특별히 나를 강력하게 구원해 줄 수호 에너지는 보이지 않습니다. 각자의 자립심으로 위기를 헤쳐나가야 합니다."}
 
     # ==========================================
-    # 3. 입체적(3D) 속궁합 및 정신적 교감 (로직 복구 완료)
+    # 3. 입체적(3D) 속궁합 및 정신적 교감 (🚨 NoneType 100% 방어 완료)
     # ==========================================
     def analyze_3d_match(self, m_day_pillar: dict, f_day_pillar: dict) -> dict:
-        m_stem, f_stem = m_day_pillar.get("stem", ""), f_day_pillar.get("stem", "")
-        m_branch, f_branch = m_day_pillar.get("branch", ""), f_day_pillar.get("branch", "")
+        m_day_pillar = m_day_pillar or {}
+        f_day_pillar = f_day_pillar or {}
+        
+        m_stem = m_day_pillar.get("stem", "")
+        f_stem = f_day_pillar.get("stem", "")
+        m_branch = m_day_pillar.get("branch", "")
+        f_branch = f_day_pillar.get("branch", "")
 
         # 천간 (정신적 교감)
         mental = {"status": "평범", "desc": "정신적으로 무난하게 타협 가능한 동반자입니다."}
@@ -198,11 +212,11 @@ class UltimateGunghapEngine:
         })
 
     # ==========================================
-    # 🚀 최종 융합 렌더링 파이프라인
+    # 🚀 최종 융합 렌더링 파이프라인 (🚨 NoneType 100% 방어 완료)
     # ==========================================
     def get_ultimate_compatibility(self, m_bazi: dict, f_bazi: dict, m_lunar_m: int, f_lunar_m: int, m_yongshin: dict, f_yongshin: dict, m_elements: dict, f_elements: dict, m_star: int, f_star: int) -> dict:
-        m_day = m_bazi.get("day", {})
-        f_day = f_bazi.get("day", {})
+        m_day = (m_bazi or {}).get("day", {})
+        f_day = (f_bazi or {}).get("day", {})
 
         return {
             "fatal_warnings": self.scan_fatal_disasters(m_bazi, f_bazi, m_lunar_m, f_lunar_m),
