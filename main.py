@@ -248,14 +248,20 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
     elements_dist = mech.get_five_elements_distribution(valid_stems, valid_branches)
     
     career = prac.analyze_career(geokguk, yongshin_data)
-    health_raw = prac.analyze_health(elements_dist)
+    # 🚨 [패치 1] 성별(gender) 변수 전달 완료
+    health_raw = prac.analyze_health(elements_dist, gender=gender)
     
     elements_imbalance = []
     for h in health_raw:
         if h["element"] != "종합":
             elements_imbalance.append({
-                "element": h["element"], "type": h.get("status_code", "양호"), 
-                "original_status": h["status"], "count": elements_dist.get(h["element"], 0), "desc": h["advice"]
+                "element": h["element"], 
+                "type": h.get("status_code", "양호"), 
+                "original_status": h["status"], 
+                "count": elements_dist.get(h["element"], 0), 
+                "desc": h["advice"],
+                "organ": h.get("organ", ""),     # 🚨 [패치 2] 주의 장기 데이터 복원
+                "symptom": h.get("symptom", "")  # 🚨 [패치 3] 예상 증상 데이터 복원
             })
 
     special_stars = dyn.scan_special_stars({"year": y_stem, "month": m_stem, "day": d_stem, "hour": h_stem}, {"year": y_branch, "month": m_branch, "day": d_branch, "hour": h_branch})
@@ -291,7 +297,6 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
 
     my_star = ghap.get_bonmyeongseong(dt_kst.year, gender)    
 
-    # 🚨 [풍수지리 데이터 복원] 엔진 호출 및 변수 할당 추가
     try:
         fengshui_honmyeong = feng.calculate_honmyeong_gung(dt_kst.year, gender)
         fengshui_dirs = feng.get_auspicious_directions(fengshui_honmyeong.get("number", 1))
@@ -446,7 +451,7 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
             "gunghap": gunghap_data,
             "ideal_partner": ideal_partner_data,
             "secret_readings": secret_readings_data,
-            "fengshui": fengshui_data, # 🚨 [데이터 전송 복원] 프론트엔드로 풍수 데이터 발사!
+            "fengshui": fengshui_data,
             "classical": {"reading": classical_reading},
             "gender": "Male" if gender == "M" else "Female",
             "applied_traditional": apply_trad
