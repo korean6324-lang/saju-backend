@@ -18,7 +18,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 # ==========================================
-# 🌟 모든 엔진 총동원
+# 🌟 모든 엔진 총동원 (비전 엔진 추가 완료)
 # ==========================================
 from core_astro import CoreAstroEngine
 from core_mechanics import MechanicsEngine
@@ -30,6 +30,7 @@ from logic_practical import PracticalEngine
 from logic_unse import UnseEngine
 from logic_yongshin import YongshinEngine
 from logic_classical import ClassicalEngine 
+from logic_secret import SecretEngine # 🚨 비전 엔진 Import 추가
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -59,6 +60,7 @@ prac = PracticalEngine()
 unse = UnseEngine()
 yong = YongshinEngine()
 clas = ClassicalEngine() 
+sec = SecretEngine() # 🚨 비전 엔진 객체 생성
 
 BAZI_CACHE = TTLCache(maxsize=10000, ttl=86400)
 CALENDAR_CACHE = TTLCache(maxsize=5000, ttl=86400)    
@@ -285,9 +287,11 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
         sw["stem_tg"] = get_tg(sw["stem"])
         sw["branch_tg"] = get_tg(sw["branch"])
 
+    # 🚨 [핵심 패치 1] 비전 명리(SecretEngine) 연산 파이프라인 호출
+    secret_readings = sec.get_secrets(bazi_for_engine, daewun_raw)
+
     my_star = ghap.get_bonmyeongseong(dt_kst.year, gender)    
 
-    # 파트너 연산 및 이상형 처방전 엔진 파이프라인
     gunghap_data = None
     ideal_partner_data = None
     
@@ -362,7 +366,6 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
                 "gugung_matrix": {"status": "오류", "desc": "엔진 렌더링 실패"}
             }
     else:
-        # 🚨 [신규] 파트너가 없을 경우 역산형 이상형 처방전 획득
         try:
             ideal_partner_data = ghap.get_ideal_partner(bazi_for_engine, yongshin_data, my_star.get("number", 1), gender)
         except Exception as e:
@@ -430,7 +433,8 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
             "napeum_reading": napeum_reading,
             "timeline": {"daewun": daewun_raw, "sewun": sewun_raw},
             "gunghap": gunghap_data,
-            "ideal_partner": ideal_partner_data, # 🚨 [핵심] 처방전 프론트로 전송
+            "ideal_partner": ideal_partner_data,
+            "secret_readings": secret_readings, # 🚨 [핵심 패치 2] 비전 엔진 결과를 프론트로 전송
             "classical": {"reading": classical_reading},
             "gender": "Male" if gender == "M" else "Female",
             "applied_traditional": apply_trad
@@ -692,4 +696,4 @@ def calendar_endpoint(request: Request, req: CalendarRequest):
 @app.get("/")
 @limiter.limit("100/minute")
 def read_root(request: Request):
-    return {"message": "마스터 브릿지 API 가동 중 (Phase 5: Gunghap Engine Fully Synced & Safe)"}
+    return {"message": "마스터 브릿지 API 가동 중 (Phase 5: Secret Engine Fully Integrated)"}
