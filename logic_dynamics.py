@@ -35,7 +35,7 @@ SPECIAL_STARS_DB = {
     "역마살": {"hanja": "驛馬殺", "desc": "【특징】 강제적이고 역동적인 이동과 개척의 에너지.\n【분석】 한곳에 갇혀있으면 병이 나며, 무역, 외교, 항공, 영업, 운수업 등 활동 반경을 전 세계로 넓힐 때 폭발적으로 발복합니다. 주거지나 직업의 잦은 변동으로 심신의 피로도가 높습니다."},
     "화개살": {"hanja": "華蓋殺", "desc": "【특징】 세속의 화려함을 덮고 정신적 고결함을 추구하는 고독의 별.\n【분석】 예술, 철학, 종교, 명리, 심리학 분야에서 타인이 범접 불가한 천재성과 통찰력을 보입니다. 세속적 욕망을 초월하려는 내면의 고독감과 정신적 번뇌가 평생 수반됩니다."},
     "백호대살": {"hanja": "白虎大殺", "desc": "【특징】 맹호의 물어뜯는 살기. 압도적인 프로페셔널 에너지.\n【분석】 기운이 흉폭하고 급진적이나, 이 살기를 직업(군인, 경찰, 사법, 의료, 정육, 특수기술)으로 승화(업상대체)시키면 해당 분야의 최고 권위자에 오릅니다. 핏빛 돌발사고와 감정의 폭발을 평생 경계해야 합니다."},
-    "괴강살": {"hanja": "魁罡殺", "desc": "【특징】 북두칠성의 으뜸을 뜻하는 극강의 주체성과 카리스마.\n【분석】 타인의 지배를 극도로 혐오하고 굽힐 줄 모르는 강직함으로 거대 조직의 우두머리가 됩니다. 길흉의 극단성이 강해 대부대귀(大富大貴)하거나 한순간에 추락할 수 있는 양날의 검입니다."},
+    "괴강살": {"hanja": "魁罡殺", "desc": "【특징】 북두칠성의 으뜸을 뜻하는 극강의 주체성과 카리스마.\n【분석】 타인의 지배를 극도로 혐오하고 굽힐 줄 모르는 강직함으로 거대 조직의 우두머리가 됩니다. 길흉의 극단성이 강해 대부대귀(大富大貴)하거나 한순간에 추락할 수 있는 양날 검입니다."},
     "양인살": {"hanja": "羊刃殺", "desc": "【특징】 양의 목을 찌르는 날카로운 칼날의 흉폭한 기운.\n【분석】 불굴의 승부욕과 잔인하리만치 집요한 추진력을 뜻합니다. 펜이나 메스를 강하게 쥐는 전문직에서 대성하지만, 성정이 지나치게 강고하여 타인과의 잦은 마찰, 수술수, 부상을 조심해야 합니다."}
 }
 
@@ -56,6 +56,8 @@ class DynamicsEngine:
         pass
 
     def _get_element(self, char: str) -> str:
+        # 🚨 [보안 추가] 방어적 프로그래밍
+        if not char: return None
         for elem, chars in ELEMENTS.items():
             if char in chars:
                 return elem
@@ -67,8 +69,13 @@ class DynamicsEngine:
         """
         heoja_result = {"gonghyeop": [], "dochung": []}
         
+        # 🚨 [보안 추가] 타입 검증. 리스트가 아니면 빈 결과 반환
+        if not isinstance(branches, list):
+            return heoja_result
+            
         for i in range(len(branches) - 1):
-            if branches[i] == branches[i+1]:
+            # 🚨 [보안 추가] 올바른 지지인지 확인하여 ValueError 예방
+            if branches[i] == branches[i+1] and branches[i] in EARTHLY_BRANCHES:
                 idx = EARTHLY_BRANCHES.index(branches[i])
                 dochung_char = EARTHLY_BRANCHES[(idx + 6) % 12]
                 heoja_result["dochung"].append({
@@ -78,7 +85,10 @@ class DynamicsEngine:
                 })
                 
         for i in range(len(branches) - 1):
-            if branches[i] == "-" or branches[i+1] == "-": continue
+            # 🚨 [보안 추가] 올바른 지지인지 확인하여 ValueError 예방
+            if branches[i] not in EARTHLY_BRANCHES or branches[i+1] not in EARTHLY_BRANCHES: 
+                continue
+                
             idx1 = EARTHLY_BRANCHES.index(branches[i])
             idx2 = EARTHLY_BRANCHES.index(branches[i+1])
             
@@ -97,6 +107,10 @@ class DynamicsEngine:
     def scan_special_stars(self, stems_dict: dict, branches_dict: dict) -> list:
         """전문가용 심층 신살 스캐너 (객체 리스트 반환)"""
         results = []
+        
+        # 🚨 [보안 추가] 프론트엔드 오류로 None이 넘어올 때 발생하는 AttributeError 방지
+        if not isinstance(stems_dict, dict): stems_dict = {}
+        if not isinstance(branches_dict, dict): branches_dict = {}
         
         day_stem = stems_dict.get("day", "")
         day_branch = branches_dict.get("day", "")
@@ -118,15 +132,19 @@ class DynamicsEngine:
         }
 
         for pillar_key, branch in branches_dict.items():
-            if branch == "-": continue
+            if branch == "-" or not branch: continue
+            
             b_name = pillar_names.get(pillar_key, "")
             gz_name = pillar_ganzhi_names.get(pillar_key, "")
-            stem = stems_dict.get(pillar_key, "")
-            ganzhi = stem + branch
+            
+            # 🚨 [보안 추가] 안전한 문자열 결합 처리로 TypeError 방어
+            stem = str(stems_dict.get(pillar_key, "") or "")
+            branch_str = str(branch)
+            ganzhi = stem + branch_str
 
-            if branch in cheon_eul.get(day_stem, []): temp_stars["천을귀인"].append(f"{b_name}({branch})")
-            if branch == mun_chang.get(day_stem): temp_stars["문창귀인"].append(f"{b_name}({branch})")
-            if branch == yang_in.get(day_stem): temp_stars["양인살"].append(f"{b_name}({branch})")
+            if branch_str in cheon_eul.get(day_stem, []): temp_stars["천을귀인"].append(f"{b_name}({branch_str})")
+            if branch_str == mun_chang.get(day_stem): temp_stars["문창귀인"].append(f"{b_name}({branch_str})")
+            if branch_str == yang_in.get(day_stem): temp_stars["양인살"].append(f"{b_name}({branch_str})")
                 
             if ganzhi in baekho: temp_stars["백호대살"].append(f"{gz_name}({ganzhi})")
             if ganzhi in goegang: temp_stars["괴강살"].append(f"{gz_name}({ganzhi})")
@@ -142,10 +160,10 @@ class DynamicsEngine:
         ref_stars_year = get_12_stars(year_branch)
 
         for pillar_key, branch in branches_dict.items():
-            if branch == "-": continue
+            if branch == "-" or not branch: continue
             b_name = pillar_names.get(pillar_key, "")
             for star_name in ["도화", "역마", "화개"]:
-                if branch in [ref_stars_day.get(star_name), ref_stars_year.get(star_name)] and branch is not None:
+                if branch in [ref_stars_day.get(star_name), ref_stars_year.get(star_name)]:
                     item = f"{b_name}({branch})"
                     full_name = f"{star_name}살"
                     if item not in temp_stars[full_name]:
@@ -169,9 +187,15 @@ class DynamicsEngine:
         results = []
         temp_disasters = {key: [] for key in RELATIONS.keys()}
         
+        # 🚨 [보안 추가] 타입 검증. 리스트가 아니면 빈 배열 반환하여 TypeError 방어
+        if not isinstance(branches, list):
+            return results
+            
         for i in range(len(branches)):
             for j in range(i + 1, len(branches)):
-                if branches[i] == "-" or branches[j] == "-": continue
+                if branches[i] == "-" or branches[j] == "-" or not branches[i] or not branches[j]: 
+                    continue
+                    
                 pair = {branches[i], branches[j]}
                 
                 for rel_name, rel_list in RELATIONS.items():
@@ -199,6 +223,10 @@ class DynamicsEngine:
 
     def check_gaedu_jeolgak(self, stem: str, branch: str) -> dict:
         """개두(蓋頭)와 절각(截脚) 판별기"""
+        # 🚨 [보안 추가] 문자열 검증 및 초기화
+        stem = str(stem).strip() if stem else ""
+        branch = str(branch).strip() if branch else ""
+        
         stem_elem = self._get_element(stem)
         branch_elem = self._get_element(branch)
         

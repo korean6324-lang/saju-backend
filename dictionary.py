@@ -135,45 +135,59 @@ class DictionaryEngine:
             {"term": "절각", "hanja": "截脚", "category": "비전살", "meaning": "지지가 천간의 다리를 자르듯 극(剋)하는 형국. 뜻은 높으나 환경이 받쳐주지 않아 매사가 중도에 꺾이고 단절되기 쉬운 답답한 운세입니다."}
         ]
         
-        # 🚨 [옵션 4] 한글 단어(term) 기준 가나다순 정렬하여 출력의 일관성 확보
+        # 🚨 한글 단어(term) 기준 가나다순 정렬하여 출력의 일관성 확보
         self.db.sort(key=lambda x: x["term"])
 
-    def search(self, query: str):
+    def search(self, query: str) -> list:
         """
-        🚨 [작업 2] 스마트 검색 알고리즘
-        공백을 무시하여 유연하게 매칭하고, 첫 글자 일치(Prefix Match) 시 높은 가중치를 부여합니다.
+        🚨 [개선된 스마트 검색 알고리즘]
+        1. 타입 검증(Type Validation) 추가로 서버 다운 방지
+        2. Exact Match(완전 일치) > Prefix Match(첫 글자 일치) > Partial Match(단순 포함) 
+           3단계 가중치를 적용하여 검색 정확도 극대화
         """
-        if not query or query.strip() == "":
+        # Type Validation 및 안전한 예외 처리
+        if not isinstance(query, str) or not query.strip():
             return self.db
             
-        # 1. 유저의 검색어에서 공백 완전 제거 후 소문자화
         clean_query = query.replace(" ", "").lower()
         
         exact_matches = []
+        prefix_matches = []
         partial_matches = []
         
         for item in self.db:
-            # 2. 내부 데이터도 공백 제거하여 유연한 매칭
             clean_term = item["term"].replace(" ", "").lower()
             clean_hanja = item["hanja"].replace(" ", "").lower()
             clean_meaning = item["meaning"].replace(" ", "").lower()
             clean_category = item["category"].replace(" ", "").lower()
             
-            # 검색어가 어디에든 포함되어 있다면 1차 합격
-            if (clean_query in clean_term) or (clean_query in clean_hanja) or \
-               (clean_query in clean_meaning) or (clean_query in clean_category):
+            # 1순위: 용어나 한자가 검색어와 완전히 똑같을 때 (최상단)
+            if clean_query == clean_term or clean_query == clean_hanja:
+                exact_matches.append(item)
                 
-                # 3. 우선순위 가중치: 첫 글자가 일치(시작점)하면 최상단에 배치
-                if clean_term.startswith(clean_query):
-                    exact_matches.append(item)
-                else:
-                    partial_matches.append(item)
+            # 2순위: 검색어로 시작할 때 (예: "천라" 검색 시 "천라지망" 매칭)
+            elif clean_term.startswith(clean_query):
+                prefix_matches.append(item)
+                
+            # 3순위: 의미, 카테고리 등 어딘가에 포함되어 있을 때
+            elif (clean_query in clean_term) or (clean_query in clean_hanja) or \
+                 (clean_query in clean_meaning) or (clean_query in clean_category):
+                partial_matches.append(item)
         
-        # 가중치가 높은 결과를 배열의 앞부분에 정렬하여 리턴
-        return exact_matches + partial_matches
+        # 가중치 순서대로 배열을 합쳐서 리턴 (Exact -> Prefix -> Partial)
+        return exact_matches + prefix_matches + partial_matches
 
-    def get_by_category(self, category_name: str):
+    def get_by_category(self, category_name: str) -> list:
         """
-        🚨 [작업 3] 특정 카테고리(예: '당사주', '풍수/궁합') 데이터만 필터링하여 리턴
+        🚨 [개선된 카테고리 필터링]
+        입력값 검증 및 공백/대소문자 정규화를 통해 매칭 실패율 최소화
         """
-        return [item for item in self.db if item["category"] == category_name]
+        if not isinstance(category_name, str) or not category_name.strip():
+            return []
+            
+        target_category = category_name.replace(" ", "").lower()
+        
+        return [
+            item for item in self.db 
+            if item["category"].replace(" ", "").lower() == target_category
+        ]

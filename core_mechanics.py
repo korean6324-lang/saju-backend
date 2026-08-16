@@ -218,7 +218,6 @@ class MechanicsEngine:
 
     def check_tonggeun(self, target_stem: str, branches_dict: dict) -> dict:
         """통근(通根) 스캐너"""
-        # 🚨 [버그 수정 완료] 프론트엔드 React 컴포넌트 키값 동기화: has_root -> is_rooted
         result = {
             "target": target_stem,
             "is_rooted": False,
@@ -226,6 +225,10 @@ class MechanicsEngine:
             "roots": []
         }
         
+        # 🚨 [보완 적용] 프론트엔드 비정상 입력(None, List 등) 차단
+        if not isinstance(branches_dict, dict) or not target_stem:
+            return result
+
         target_element = ELEMENT_MAP.get(target_stem)
         if not target_element:
             return result
@@ -238,9 +241,9 @@ class MechanicsEngine:
                 
                 if h_stem and ELEMENT_MAP.get(h_stem) == target_element:
                     weight = 1.2 if h_stem == target_stem else 1.0
-                    calculated_power = int(power * weight)
+                    # 🚨 [보완 적용] 부동소수점 오차 방지를 위한 반올림 처리
+                    calculated_power = round(power * weight)
                     
-                    # 🚨 [버그 수정 완료] 프론트엔드 통신 호환 키값 적용
                     result["is_rooted"] = True
                     result["total_power"] += calculated_power
                     result["roots"].append({
@@ -255,6 +258,10 @@ class MechanicsEngine:
 
     def get_five_elements_distribution(self, stems_list: list, branches_list: list) -> dict:
         """사주 8글자의 오행 개수를 스캔하여 반환합니다."""
+        # 🚨 [보완 적용] None 타입이 들어올 경우 빈 리스트로 초기화하여 런타임 에러 방지
+        stems_list = stems_list or []
+        branches_list = branches_list or []
+        
         distribution = {"목": 0, "화": 0, "토": 0, "금": 0, "수": 0}
         
         for char in stems_list + branches_list:
@@ -273,7 +280,9 @@ class MechanicsEngine:
         day_el = ELEMENT_MAP.get(day_stem)
         target_el = ELEMENT_MAP.get(target_char)
         
-        if not day_el or not target_el: return ""
+        # 🚨 [보완 적용] 매칭 실패 시 빈 문자열 대신 일관된 "알 수 없음" 반환
+        if not day_el or not target_el: 
+            return "알 수 없음"
         
         day_yy = YIN_YANG.get(day_stem)
         target_yy = YIN_YANG.get(target_char)
@@ -307,8 +316,16 @@ class MechanicsEngine:
         if year_stem not in YIN_YANG or month_stem not in STEMS_SEQ or month_branch not in EARTHLY_BRANCHES_SEQ:
             return {"direction": "알 수 없음", "timeline": []}
 
+        # 🚨 [보완 적용] 성별 입력값 정규화 (대소문자/공백 무시) 및 Fallback 처리
+        safe_gender = str(gender).strip().upper()
+        if safe_gender not in ['M', 'F']:
+            safe_gender = 'M'  # 예외 상황 시 기본값 지정
+            
+        # 🚨 [보완 적용] 대운수(daewun_num)를 명리학의 한계치인 1~10 사이로 강제
+        safe_daewun_num = max(1, min(10, int(daewun_num)))
+
         is_yang_year = YIN_YANG[year_stem] == "+"
-        is_forward = (gender == 'M' and is_yang_year) or (gender == 'F' and not is_yang_year)
+        is_forward = (safe_gender == 'M' and is_yang_year) or (safe_gender == 'F' and not is_yang_year)
         direction_str = "순행" if is_forward else "역행"
         
         s_idx = STEMS_SEQ.index(month_stem)
@@ -323,7 +340,7 @@ class MechanicsEngine:
                 curr_s = STEMS_SEQ[(s_idx - i) % 10]
                 curr_b = EARTHLY_BRANCHES_SEQ[(b_idx - i) % 12]
             
-            age = daewun_num + (i - 1) * 10
+            age = safe_daewun_num + (i - 1) * 10
             timeline.append({"age": age, "stem": curr_s, "branch": curr_b})
             
         return {"direction": direction_str, "timeline": timeline}

@@ -103,6 +103,16 @@ class DangsajuEngine:
         """
         🚨 [CTO 지시사항 2 & 3] 정통 당사주 순차 연산 및 시간 모름(unknown_time) 방어 로직
         """
+        # 🚨 [보안 추가] 입력값 타입 검증 및 캐스팅으로 서버 다운(500 에러) 원천 차단
+        try:
+            y_branch = str(y_branch).strip() if y_branch else ""
+            h_branch = str(h_branch).strip() if h_branch else ""
+            lunar_month = int(lunar_month)
+            lunar_day = int(lunar_day)
+        except (ValueError, TypeError):
+            # 변환 불가능한 비정상 데이터가 유입되면 안전하게 빈 딕셔너리 반환
+            return {}
+
         if y_branch not in self.branches:
             return {}
 

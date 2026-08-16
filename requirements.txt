@@ -1,10 +1,13 @@
+# Web Framework & Server
 fastapi==0.103.1
-uvicorn==0.23.2
-ephem==4.1.4
 pydantic==2.3.0
-redis==5.0.0
+uvicorn[standard]>=0.23.2
+
+# Astro & Lunar Calendar (명리학 코어)
+ephem==4.1.4
 korean_lunar_calendar==0.3.1
+
+# Caching & Rate Limiting (서버 보안 및 성능)
+redis==5.0.0
 cachetools==5.3.3
 slowapi==0.1.9
-cachetools
-slowapi

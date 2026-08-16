@@ -46,6 +46,25 @@ class YongshinEngine:
             "JONG_JAE": "[특수 종재격] 내 자존심을 완벽히 꺾고 재물(財)의 거대한 흐름에 완전히 엎드려 복종한 형국입니다. (棄命從財) 줏대를 세우지 말고 자본의 흐름과 돈이 많은 자를 따르면, 한평생 만금(萬金)을 거머쥐는 대부(大富)의 명입니다.",
             "JONG_SAL": "[특수 종살격] 나를 죽이려는 권력(殺)이 너무 강해, 오히려 그 권력에 철저히 흡수되어 버린 살벌한 형국입니다. (棄命從殺) 법, 군경, 사법 등 생사여탈권을 쥔 조직에서 타의 추종을 불허하는 권력을 쥐게 됩니다."
         }
+        
+        # 🚨 [신규 DB] 용신별 혼택(부부관계) 실전 가이드
+        self.marriage_advice_db = {
+            "비겁": "나의 줏대를 세워주는 기운이 수호신입니다. 결혼 후에도 부부간 상하관계가 아닌 '평등한 맞벌이 동반자' 형태를 유지해야 가정이 흔들리지 않습니다.",
+            "식상": "내 에너지를 밖으로 표출하고 베푸는 기운이 수호신입니다. 배우자에게 먼저 양보하고, 특히 '자식을 낳고 기르는 과정'에서 가세가 폭발적으로 상승합니다.",
+            "재성": "현실 감각과 결과물이 수호신입니다. 허황된 꿈을 꾸는 배우자보다는 꼼꼼하고 경제 관념이 뚜렷한 배우자를 만나 재테크를 전담시켜야 안정됩니다.",
+            "관성": "나를 합리적으로 통제하는 기운이 수호신입니다. 연애결혼보다는 집안 어른이나 조직 내에서 검증된 반듯한 배우자를 만나는 것이 인생의 흉을 피하는 지름길입니다.",
+            "인성": "나를 보살펴주는 든든한 어머니 같은 기운이 수호신입니다. 나보다 연상이거나, 학식이 높고 배울 점이 많아 정신적 지주가 되어줄 수 있는 배우자가 절대적으로 필요합니다."
+        }
+
+    # 🚨 [보안 추가] 안전한 문자열 처리 및 딕셔너리 접근
+    def _safe_str(self, val) -> str:
+        return str(val).strip() if val else ""
+        
+    def _safe_get(self, d: dict, key1: str, key2: str, default=""):
+        if not isinstance(d, dict): return default
+        sub_d = d.get(key1, {})
+        if not isinstance(sub_d, dict): return default
+        return self._safe_str(sub_d.get(key2, default))
 
     def _get_tg_group(self, tg: str) -> str:
         if tg in ["비견", "겁재"]: return "비겁"
@@ -61,7 +80,6 @@ class YongshinEngine:
         return None
 
     def _get_tg_group_by_element(self, day_stem: str, target_elem: str) -> str:
-        # 🚨 [핫픽스 4] day_stem 혹은 target_elem이 결측치(None)일 경우 즉각 "기타" 반환 (Type Error 방어)
         day_elem = self._determine_element(day_stem)
         if not day_elem or not target_elem: 
             return "기타"
@@ -80,11 +98,13 @@ class YongshinEngine:
         tg_scores = {"비겁": 0, "식상": 0, "재성": 0, "관성": 0, "인성": 0}
         instability_flag = False
         
-        day_stem = bazi_data["day"]["stem"]
+        # 🚨 [보안 추가] KeyError 방어
+        day_stem = self._safe_get(bazi_data, "day", "stem")
+        if not day_stem: 
+            return {"status_code": "에러", "expert_advice": "데이터 누락"}
         
-        # 🚨 [핫픽스 3] 기둥 배열을 별도의 변수로 선언하여 가독성과 매핑 안정성 향상
         pillars = ["year", "month", "day", "hour"]
-        branches = [bazi_data[p]["branch"] for p in pillars]
+        branches = [self._safe_get(bazi_data, p, "branch", "-") for p in pillars]
         
         # 1. 기본 가중치 세팅
         for p, w in [("year_stem", 10), ("year_branch", 10), ("month_stem", 10), 
@@ -92,7 +112,7 @@ class YongshinEngine:
                      ("hour_stem", 10), ("hour_branch", 10)]:
             pillar = p.split("_")[0]
             t_type = p.split("_")[1]
-            tg = bazi_data[pillar][f"{t_type}_tg"]
+            tg = self._safe_get(bazi_data, pillar, f"{t_type}_tg", "-")
             if tg and tg != "-":
                 grp = self._get_tg_group(tg)
                 if grp in tg_scores:
@@ -104,9 +124,8 @@ class YongshinEngine:
             pair = {branches[i], branches[i+1]}
             if pair in self.chungs:
                 instability_flag = True
-                # 충 맞은 두 글자의 십신 그룹 점수 50% 삭감
-                tg1 = self._get_tg_group(bazi_data[pillars[i]]["branch_tg"])
-                tg2 = self._get_tg_group(bazi_data[pillars[i+1]]["branch_tg"])
+                tg1 = self._get_tg_group(self._safe_get(bazi_data, pillars[i], "branch_tg", "-"))
+                tg2 = self._get_tg_group(self._safe_get(bazi_data, pillars[i+1], "branch_tg", "-"))
                 if tg1 in tg_scores: tg_scores[tg1] -= (self.base_weights[f"{pillars[i]}_branch"] * 0.5)
                 if tg2 in tg_scores: tg_scores[tg2] -= (self.base_weights[f"{pillars[i+1]}_branch"] * 0.5)
 
@@ -136,9 +155,7 @@ class YongshinEngine:
         expert_advice = ""
         is_special = False
 
-        # 🚨 [핫픽스 1 & 2] 임계값(Threshold) 재조정 및 안전한 .get() 호출 적용
         if my_percent < 15: 
-            # 합으로 인해 total_score가 부풀려지는 것을 감안하여 절대 점수(90점 이상) 혹은 65% 이상 조건으로 완화
             if tg_scores["재성"] >= 90 or (tg_scores["재성"] / total_score) >= 0.65:
                 status_code = "JONG_JAE"
                 expert_advice = self.expert_text_db.get("JONG_JAE", "")
@@ -180,8 +197,11 @@ class YongshinEngine:
         }
 
     def determine_geokguk(self, bazi_data: dict, hidden_stems_data: dict) -> dict:
-        day_stem = bazi_data["day"]["stem"]
-        month_branch_tg = bazi_data["month"]["branch_tg"]
+        day_stem = self._safe_get(bazi_data, "day", "stem")
+        month_branch_tg = self._safe_get(bazi_data, "month", "branch_tg")
+
+        if not day_stem:
+            return {"name_clean": "알수없음", "hanja_clean": "", "desc": "격국 산출 불가"}
 
         if month_branch_tg == "비견":
             return {"name_clean": "건록격", "hanja_clean": "建祿格", "desc": "자수성가의 명. 독립심이 강하고 자신의 실력으로 세상을 개척하는 튼튼한 그릇입니다."}
@@ -192,15 +212,21 @@ class YongshinEngine:
         if day_stem not in yang_stems and month_branch_tg == "겁재":
             return {"name_clean": "월인격", "hanja_clean": "月刃格", "desc": "질긴 생명력의 명. 타인의 지배를 거부하고 은근한 고집으로 기어코 뜻을 이루어내는 그릇입니다."}
 
-        month_hidden = hidden_stems_data["month"]
+        # 🚨 [보안 추가] 지장간 데이터 타입 방어
+        if not isinstance(hidden_stems_data, dict): hidden_stems_data = {}
+        month_hidden = hidden_stems_data.get("month", {})
+        if not isinstance(month_hidden, dict): month_hidden = {}
+        
         projected_tg = None
         
         for key in ["main", "middle", "initial"]:
-            h_stem, _ = month_hidden.get(key, (None, 0))
+            h_stem_tuple = month_hidden.get(key, (None, 0))
+            h_stem = h_stem_tuple[0] if isinstance(h_stem_tuple, (list, tuple)) else None
+            
             if h_stem:
                 for pillar in ["year", "month", "hour"]:
-                    if bazi_data[pillar]["stem"] == h_stem:
-                        projected_tg = bazi_data[pillar]["stem_tg"]
+                    if self._safe_get(bazi_data, pillar, "stem") == h_stem:
+                        projected_tg = self._safe_get(bazi_data, pillar, "stem_tg")
                         break
             if projected_tg: break
 
@@ -220,11 +246,11 @@ class YongshinEngine:
         return geokguk_texts.get(target_tg, {"name_clean": f"{target_tg}격", "hanja_clean": "", "desc": f"사회를 살아가는 무기로 {target_tg}의 기운을 강력하게 쓰는 그릇입니다."})
 
     def determine_yongshin(self, bazi_data: dict, strength_data: dict) -> dict:
-        month_branch = bazi_data["month"]["branch"]
-        status_code = strength_data.get("status_code", "")
+        month_branch = self._safe_get(bazi_data, "month", "branch")
+        status_code = self._safe_str(strength_data.get("status_code"))
         tg_scores = strength_data.get("tg_scores", {})
         
-        result = {"yongshin": "", "huishin": "", "gishin": "", "desc": ""}
+        result = {"yongshin": "", "huishin": "", "gishin": "", "desc": "", "marriage_advice": ""}
 
         # 1. 특수격(종격) 절대 우선
         if status_code == "JONG_JAE":
@@ -232,12 +258,14 @@ class YongshinEngine:
             result["huishin"] = "식상(재능/활동)"
             result["gishin"] = "비겁(자존심/동업)"
             result["desc"] = strength_data.get("expert_advice", "")
+            result["marriage_advice"] = self.marriage_advice_db.get("재성", "")
             return result
         elif status_code == "JONG_SAL":
             result["yongshin"] = "관성(권력/조직)"
             result["huishin"] = "재성(재물/목표)"
             result["gishin"] = "식상(반항/언변)"
             result["desc"] = strength_data.get("expert_advice", "")
+            result["marriage_advice"] = self.marriage_advice_db.get("관성", "")
             return result
 
         # 2. 조후 vs 억부 충돌 방어 로직
@@ -251,12 +279,14 @@ class YongshinEngine:
                 result["huishin"] = "화(火) 에너지"
                 result["gishin"] = "수(水) 에너지 및 금(金)"
                 result["desc"] = "꽁꽁 얼어붙은 사주이나 기운마저 극도로 쇠약합니다. 섣불리 불(재물/권력)을 쫓아가면 얼음물이 녹아 나를 덮치니, 반드시 지식과 자격증(인성)을 먼저 갖추어 내실을 다져야만 다가올 부와 명예를 거머쥘 수 있습니다."
+                result["marriage_advice"] = self.marriage_advice_db.get("인성", "")
                 return result
             else:
                 result["yongshin"] = "조후용신: 화(火) 에너지"
                 result["huishin"] = "목(木) 에너지"
                 result["gishin"] = "수(水) 에너지"
                 result["desc"] = "동토의 얼어붙은 사주입니다. 나의 에너지가 든든하니 주저 없이 따뜻한 태양과 불(火)의 기운(사회적 활동/재물)을 쫓아야 만물이 소생하고 폭발적으로 발복합니다."
+                result["marriage_advice"] = self.marriage_advice_db.get("재성", "")
                 return result
 
         if is_summer:
@@ -265,12 +295,14 @@ class YongshinEngine:
                 result["huishin"] = "수(水) 에너지"
                 result["gishin"] = "화(火) 에너지 및 목(木)"
                 result["desc"] = "펄펄 끓는 사막의 사주이나 체력이 고갈되었습니다. 섣불리 물(재물/결과)을 쫓으면 증발해 버리니, 바위처럼 단단한 원칙과 자격증(금 기운)으로 바탕을 다져야 물이 솟아나 갈증을 해소합니다."
+                result["marriage_advice"] = self.marriage_advice_db.get("인성", "")
                 return result
             else:
                 result["yongshin"] = "조후용신: 수(水) 에너지"
                 result["huishin"] = "금(金) 에너지"
                 result["gishin"] = "화(火) 에너지"
                 result["desc"] = "사막처럼 펄펄 끓는 한여름의 사주입니다. 내공이 튼튼하니 주저 없이 시원한 강물(수 기운)의 무대를 향해 나아가 맹활약하면 재물과 명예가 파도처럼 밀려옵니다."
+                result["marriage_advice"] = self.marriage_advice_db.get("식상", "")
                 return result
 
         # 3. 병약(病藥) 억부 판별
@@ -279,18 +311,24 @@ class YongshinEngine:
             if tg_scores.get("인성", 0) > tg_scores.get("비겁", 0):
                 result["yongshin"] = "재성 (현실감각/목표)"
                 result["gishin"] = "인성 (망상/게으름)"
+                result["marriage_advice"] = self.marriage_advice_db.get("재성", "")
             else:
                 result["yongshin"] = "관성 (규율/통제력)"
                 result["gishin"] = "비겁 (오만/동업)"
+                result["marriage_advice"] = self.marriage_advice_db.get("관성", "")
+                
             result["huishin"] = "식상 (유연성/표현)"
             result["desc"] = adv if adv else f"나의 에너지가 넘치는 {status_code} 사주입니다. 흘러넘치는 내 힘을 시원하게 빼주면서 결과물을 만들어내는 기운이 최고의 수호신입니다."
         else:
             if tg_scores.get("관성", 0) > tg_scores.get("재성", 0) and tg_scores.get("관성", 0) > tg_scores.get("식상", 0):
                 result["yongshin"] = "인성 (지식/문서/어머니)"
                 result["gishin"] = "관성 (압박/스트레스)"
+                result["marriage_advice"] = self.marriage_advice_db.get("인성", "")
             else:
                 result["yongshin"] = "비겁 (동료/주체성)"
                 result["gishin"] = "재성 (재물욕/과로)"
+                result["marriage_advice"] = self.marriage_advice_db.get("비겁", "")
+                
             result["huishin"] = "인성"
             result["desc"] = adv if adv else f"기운이 소진된 {status_code} 사주입니다. 나를 든든하게 생(生)해주는 지식(인성)이나 든든한 아군(비겁)이 수호신이 됩니다. 과도한 재물이나 명예를 쫓으면 건강이 박살 납니다."
 
