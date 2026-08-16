@@ -4,7 +4,7 @@ import json
 import hashlib
 import logging
 from enum import Enum
-from typing import Optional, Union, Dict, Any, List
+from typing import Optional, Union
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,7 +18,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 # ==========================================
-# 🌟 코어 엔진 Import
+# 🌟 모든 엔진 총동원 (비전 엔진 및 풍수 엔진 포함)
 # ==========================================
 from core_astro import CoreAstroEngine
 from core_mechanics import MechanicsEngine
@@ -32,25 +32,10 @@ from logic_yongshin import YongshinEngine
 from logic_classical import ClassicalEngine 
 from logic_secret import SecretEngine
 
-# 🚨 [V2.0 신규 혼택 엔진 로드]
-try:
-    from logic_hongtaek import MacroGunghapEngine, TaegilEngine, MicroBaziEngine, IchingOracleEngine, UltimateHongtaekEngine
-    macro_eng = MacroGunghapEngine()
-    taegil_eng = TaegilEngine()
-    micro_eng = MicroBaziEngine()
-    iching_eng = IchingOracleEngine()
-    hongtaek_engine = UltimateHongtaekEngine(macro_eng, taegil_eng, micro_eng, iching_eng)
-    HONGTAEK_AVAILABLE = True
-    logging.info("✅ V2.0 Hongtaek Engine Loaded Successfully.")
-except ImportError as e:
-    HONGTAEK_AVAILABLE = False
-    hongtaek_engine = None
-    logging.warning(f"⚠️ V2.0 Hongtaek Engine Not Found. Fallback to V1 only. Error: {e}")
-
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Myeongri Master Bridge API", version="4.5.0")
+app = FastAPI(title="Myeongri Master Bridge API", version="4.0.0")
 
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
@@ -134,318 +119,559 @@ class CalendarTypeEnum(str, Enum):
     lunar = "lunar"
     lunar_leap = "lunar_leap"
 
-# ==========================================
-# 1. API Request 스키마 정의
-# ==========================================
 class BaziRequest(BaseModel):
     datetime_str: str = Field(..., description="YYYY-MM-DD HH:MM 형태의 날짜")
-    calendar_type: CalendarTypeEnum = Field(CalendarTypeEnum.solar)
-    gender: GenderEnum
-    longitude: Union[float, str, None] = 127.0
-    timezone: int = 9
+    calendar_type: CalendarTypeEnum = Field(CalendarTypeEnum.solar, description="solar, lunar, lunar_leap")
+    gender: GenderEnum = Field(..., description="M or F")
+    longitude: Union[float, str, None] = Field(127.0, description="태어난 지역 경도")
+    timezone: int = Field(9, description="표준 시간대")
     unknown_time: bool = False
     apply_true_solar: bool = True
     apply_yaja: bool = True
     daewun_num: int = 1
+    apply_traditional_lunar: bool = False
+    lunar_month: Optional[int] = None
+
+    partner_datetime_str: Optional[str] = None
+    partner_calendar_type: CalendarTypeEnum = CalendarTypeEnum.solar
+    partner_gender: Optional[GenderEnum] = None
+    partner_longitude: Union[float, str, None] = 127.0
+    partner_timezone: int = 9
+    partner_unknown_time: bool = False
+    partner_apply_traditional_lunar: bool = False
+    partner_lunar_month: Optional[int] = None
+    partner_daewun_num: Optional[int] = None
 
 class CalendarRequest(BaseModel):
-    datetime_str: str
-    calendar_type: CalendarTypeEnum = CalendarTypeEnum.solar
-    gender: GenderEnum
-    longitude: Union[float, str, None] = 127.0
-    timezone: int = 9
+    datetime_str: str = Field(..., description="YYYY-MM-DD HH:MM 형태의 날짜")
+    calendar_type: CalendarTypeEnum = Field(CalendarTypeEnum.solar, description="solar, lunar, lunar_leap")
+    gender: GenderEnum = Field(..., description="M or F")
+    longitude: Union[float, str, None] = Field(127.0, description="태어난 지역 경도")
+    timezone: int = Field(9, description="표준 시간대")
     unknown_time: bool = False
     apply_true_solar: bool = True
     apply_yaja: bool = True
+    apply_traditional_lunar: bool = False
+    lunar_month: Optional[int] = None
     target_year: int = Field(default_factory=lambda: (datetime.utcnow() + timedelta(hours=9)).year)
     target_month: int = Field(default_factory=lambda: (datetime.utcnow() + timedelta(hours=9)).month)
 
-# 🚨 [V2.0 신규] 혼택 전용 Request 스키마 독립
-class HongtaekRequest(BaseModel):
-    m_datetime_str: str = Field(..., description="신랑 생년월일시 (YYYY-MM-DD HH:MM)")
-    m_calendar_type: CalendarTypeEnum = CalendarTypeEnum.solar
-    m_gender: GenderEnum = GenderEnum.M
-    m_longitude: float = 127.0
-    m_timezone: int = 9
-    m_unknown_time: bool = False
-    
-    f_datetime_str: str = Field(..., description="신부 생년월일시 (YYYY-MM-DD HH:MM)")
-    f_calendar_type: CalendarTypeEnum = CalendarTypeEnum.solar
-    f_gender: GenderEnum = GenderEnum.F
-    f_longitude: float = 127.0
-    f_timezone: int = 9
-    f_unknown_time: bool = False
-    
-    target_wedding_date: Optional[str] = Field(None, description="혼택 스캔용 지정 날짜 (YYYY-MM-DD)")
-
-# ==========================================
-# 2. 공통 헬퍼 함수
-# ==========================================
 def adjust_korean_dst(dt: datetime) -> tuple[datetime, bool]:
     dst_ranges = [
-        (datetime(1987, 5, 10, 2), datetime(1987, 10, 11, 3)), 
-        (datetime(1988, 5, 8, 2), datetime(1988, 10, 9, 3))
+        (datetime(1948, 6, 1), datetime(1948, 9, 13)),
+        (datetime(1949, 4, 3), datetime(1949, 9, 11)),
+        (datetime(1950, 4, 1), datetime(1950, 9, 10)),
+        (datetime(1951, 5, 6), datetime(1951, 9, 9)),
+        (datetime(1955, 5, 5), datetime(1955, 9, 9)),
+        (datetime(1956, 5, 20), datetime(1956, 9, 30)),
+        (datetime(1957, 5, 5), datetime(1957, 9, 22)),
+        (datetime(1958, 5, 18), datetime(1958, 9, 21)),
+        (datetime(1959, 5, 10), datetime(1959, 9, 20)),
+        (datetime(1960, 5, 1), datetime(1960, 9, 18)),
+        (datetime(1987, 5, 10, 2), datetime(1987, 10, 11, 3)),
+        (datetime(1988, 5, 8, 2), datetime(1988, 10, 9, 3)),
     ]
     for start, end in dst_ranges:
         if start <= dt < end:
             return dt - timedelta(hours=1), True
     return dt, False
 
-def get_time_index(hour: int) -> int:
-    return ((hour + 1) // 2) % 12 + 1
-
-def parse_and_adjust_dt(dt_str: str, tz: int, cal_type: str, unk_time: bool) -> tuple[datetime, int, int, bool]:
+def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, apply_trad, lunar_m, unknown_time, real_lunar_m, real_lunar_d, is_dst_applied):
+    
     try:
-        dt_input = datetime.strptime(dt_str, "%Y-%m-%d %H:%M")
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=f"날짜 형식이 올바르지 않습니다: {str(ve)}")
-    
-    if dt_input.year <= 1582:
-        raise HTTPException(status_code=400, detail="1582년 이전 날짜는 연산이 불가합니다.")
-    
-    dt_kst_base = dt_input - timedelta(hours=tz) + timedelta(hours=9) if tz != 9 else dt_input
-    dt_kst, is_dst = adjust_korean_dst(dt_kst_base)
-    
-    cal = KoreanLunarCalendar()
-    if cal_type in ["lunar", "lunar_leap"]:
-        is_leap_req = (cal_type == "lunar_leap")
-        if cal.setLunarDate(dt_kst.year, dt_kst.month, dt_kst.day, is_leap_req):
-            dt_kst = datetime(cal.solarYear, cal.solarMonth, cal.solarDay, dt_kst.hour, dt_kst.minute)
+        bazi_raw = astro_res.get("bazi", {})
+        y_stem, y_branch = bazi_raw.get("year_pillar", ["-", "-"])[0], bazi_raw.get("year_pillar", ["-", "-"])[1]
+        m_stem, m_branch = bazi_raw.get("month_pillar", ["-", "-"])[0], bazi_raw.get("month_pillar", ["-", "-"])[1]
+        d_stem, d_branch = bazi_raw.get("day_pillar", ["-", "-"])[0], bazi_raw.get("day_pillar", ["-", "-"])[1]
+        
+        if unknown_time:
+            h_stem, h_branch = "-", "-"
         else:
-            raise HTTPException(status_code=400, detail="유효하지 않은 음력 날짜입니다.")
-    else:
-        cal.setSolarDate(dt_kst.year, dt_kst.month, dt_kst.day)
+            h_stem, h_branch = bazi_raw.get("hour_pillar", ["-", "-"])[0], bazi_raw.get("hour_pillar", ["-", "-"])[1]
+    except Exception:
+        y_stem, y_branch, m_stem, m_branch, d_stem, d_branch, h_stem, h_branch = ["-"] * 8
 
-    return dt_kst, cal.lunarMonth, cal.lunarDay, is_dst
-
-# ==========================================
-# 3. Builder 패턴 적용 (V1 레거시 파이프라인)
-# ==========================================
-class BaziResponseBuilder:
-    def __init__(self, dt_kst, astro_res, gender, unknown_time, daewun_num=1, real_lunar_m=None, real_lunar_d=None, is_dst=False):
-        self.dt_kst = dt_kst
-        self.astro_res = astro_res
-        self.gender = gender
-        self.unknown_time = unknown_time
-        self.daewun_num = daewun_num
-        self.real_lunar_m = real_lunar_m
-        self.real_lunar_d = real_lunar_d
-        self.is_dst = is_dst
-        self.bazi_data = {}
-        self.hidden_stems = {}
-        self.destiny_data = {}
-        self.unse_data = {}
-        
+    if apply_trad and lunar_m:
         try:
-            self.bazi_raw = astro_res.get("bazi", {})
-            self.day_master = self.bazi_raw.get("day_pillar", ["-", "-"])[0]
-            if self.day_master == "-":
-                raise ValueError("일간(Day Master)이 추출되지 않았습니다.")
-        except Exception as e:
-            logger.error(f"코어 명식 추출 실패: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail="명식 기초 데이터 연산에 실패했습니다.")
+            trad_m_stem, trad_m_branch = mech.get_traditional_month_pillar(y_stem, lunar_m)
+            if trad_m_stem and trad_m_branch: 
+                m_stem, m_branch = trad_m_stem, trad_m_branch
+        except Exception:
+            pass
 
-    def _build_bazi_data(self):
+    day_master = d_stem
+
+    def get_tg(stem_or_branch):
+        if stem_or_branch == "-": return "-"
         try:
-            y_s, y_b = self.bazi_raw.get("year_pillar", ["-", "-"])
-            m_s, m_b = self.bazi_raw.get("month_pillar", ["-", "-"])
-            d_s, d_b = self.bazi_raw.get("day_pillar", ["-", "-"])
-            h_s, h_b = ("-", "-") if self.unknown_time else self.bazi_raw.get("hour_pillar", ["-", "-"])
-            
-            def get_tg(stem_or_branch):
-                return "-" if stem_or_branch == "-" else mech.get_ten_god(self.day_master, stem_or_branch)
+            return mech.get_ten_god(day_master, stem_or_branch)
+        except Exception:
+            return "-"
 
-            self.bazi_data = {
-                "year": {"stem": y_s, "stem_tg": get_tg(y_s), "branch": y_b, "branch_tg": get_tg(y_b), "napeum": mech.get_napeum(y_s, y_b)},
-                "month": {"stem": m_s, "stem_tg": get_tg(m_s), "branch": m_b, "branch_tg": get_tg(m_b), "napeum": mech.get_napeum(m_s, m_b)},
-                "day": {"stem": d_s, "stem_tg": "일간", "branch": d_b, "branch_tg": get_tg(d_b), "napeum": mech.get_napeum(d_s, d_b)},
-                "hour": {"stem": h_s, "stem_tg": get_tg(h_s), "branch": h_b, "branch_tg": get_tg(h_b), "napeum": mech.get_napeum(h_s, h_b)}
-            }
-            
-            self.bazi_for_engine = {k: {"stem": v["stem"], "branch": v["branch"]} for k, v in self.bazi_data.items()}
-            
-            self.hidden_stems = {
-                "year": mech.get_hidden_stems(y_b), "month": mech.get_hidden_stems(m_b), "day": mech.get_hidden_stems(d_b),
-                "hour": {"initial": ["-"], "middle": ["-"], "main": ["-"]} if self.unknown_time else mech.get_hidden_stems(h_b)
-            }
-        except Exception as e:
-            logger.error(f"명식 조립 및 지장간/십성 계산 중 치명적 오류: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail="명식 기초 데이터 연산 실패")
-
-    def _analyze_destiny(self):
-        try:
-            strength = yong.determine_strength(self.bazi_for_engine)
-            self.destiny_data['strength'] = strength
-            self.destiny_data['geokguk'] = yong.determine_geokguk(self.bazi_for_engine, self.hidden_stems)
-            self.destiny_data['yongshin'] = yong.determine_yongshin(self.bazi_for_engine, strength)
-        except Exception as e:
-            logger.error(f"격국/용신 연산 오류: {e}", exc_info=True)
-            self.destiny_data['strength'] = self.destiny_data['geokguk'] = self.destiny_data['yongshin'] = {}
-
-        try:
-            valid_stems = [p["stem"] for p in self.bazi_for_engine.values() if p["stem"] != "-"]
-            valid_branches = [p["branch"] for p in self.bazi_for_engine.values() if p["branch"] != "-"]
-            self.destiny_data['elements_dist'] = mech.get_five_elements_distribution(valid_stems, valid_branches)
-            self.destiny_data['career'] = prac.analyze_career(self.destiny_data['geokguk'], self.destiny_data['yongshin'])
-            self.destiny_data['health'] = prac.analyze_health(self.destiny_data['elements_dist'], gender=self.gender)
-            self.destiny_data['special_stars'] = dyn.scan_special_stars({k:v["stem"] for k,v in self.bazi_for_engine.items()}, {k:v["branch"] for k,v in self.bazi_for_engine.items()})
-            self.destiny_data['disasters'] = dyn.scan_disasters(valid_branches)
-            
-            tonggeun_branches = {"year": valid_branches[0] if len(valid_branches)>0 else "-", "month": valid_branches[1] if len(valid_branches)>1 else "-", "day": valid_branches[2] if len(valid_branches)>2 else "-"}
-            if not self.unknown_time and len(valid_branches)>3: tonggeun_branches["hour"] = valid_branches[3]
-            self.destiny_data['tonggeun'] = mech.check_tonggeun(self.day_master, tonggeun_branches)
-        except Exception as e:
-            logger.error(f"오행/신살 연산 오류: {e}", exc_info=True)
-
-    def _analyze_unse_and_timeline(self):
-        try:
-            now_kst = datetime.utcnow() + timedelta(hours=9)
-            now_astro = astro.calculate_bazi(now_kst, self.gender)
-            now_y_b, now_m_b, now_d_b = [now_astro.get("bazi", {}).get(p, ["-", "-"])[1] for p in ["year_pillar", "month_pillar", "day_pillar"]]
-            
-            self.unse_data = {
-                "year": {**unse.analyze_sewun(self.bazi_for_engine, now_y_b, mech.get_ten_god(self.day_master, now_y_b), self.destiny_data.get('yongshin',{})), "branch": now_y_b},
-                "month": {"month_num": now_kst.month, "branch": now_m_b, "data": unse.analyze_wolgeon(self.bazi_for_engine, now_m_b, mech.get_ten_god(self.day_master, now_m_b), self.destiny_data.get('yongshin',{}))},
-                "day": {"day_num": now_kst.day, "branch": now_d_b, "data": unse.analyze_iljin(self.bazi_for_engine, now_d_b, mech.get_ten_god(self.day_master, now_d_b), self.destiny_data.get('yongshin',{}))}
-            }
-        except Exception as e:
-            logger.error(f"실시간 운세 연산 오류: {e}", exc_info=True)
-            self.unse_data = None
-
-        try:
-            daewun_raw = mech.get_daewun_sequence(self.gender, self.bazi_data["year"]["stem"], self.bazi_data["month"]["stem"], self.bazi_data["month"]["branch"], int(self.daewun_num), 10)
-            self.destiny_data['daewun'] = daewun_raw if isinstance(daewun_raw, dict) else {"timeline": daewun_raw}
-            self.destiny_data['sewun'] = mech.get_sewun_sequence(datetime.utcnow().year + 5, 10)
-            self.destiny_data['secrets'] = sec.get_secrets(self.bazi_for_engine, self.destiny_data['daewun'])
-        except Exception as e:
-            logger.error(f"대운/세운 연산 오류: {e}", exc_info=True)
-
-    def build(self) -> dict:
-        """최종 V1 개인 사주 JSON 조립"""
-        logger.info("Starting Bazi pipeline assembly...")
-        self._build_bazi_data()
-        self._analyze_destiny()
-        self._analyze_unse_and_timeline()
-        
-        my_star = ghap.get_bonmyeongseong(self.dt_kst.year, self.gender)
-        try:
-            fengshui_honmyeong = feng.calculate_honmyeong_gung(self.dt_kst.year, self.gender)
-            fengshui_dirs = feng.get_auspicious_directions(fengshui_honmyeong.get("number", 1))
-            fengshui_data = {"honmyeong": fengshui_honmyeong, "directions": fengshui_dirs}
-        except Exception as e:
-            logger.error(f"풍수 연산 오류: {e}", exc_info=True)
-            fengshui_data = None
-
-        return {
-            "metadata": {
-                "origin_kst": self.astro_res.get("origin_time", ""),
-                "true_solar_time": self.astro_res.get("corrected_time", "") if not self.unknown_time else "시간 모름 (보정 생략)",
-                "is_dst_applied": self.is_dst
-            },
-            "bazi_data": self.bazi_data,
-            "hidden_stems": self.hidden_stems,
-            "analysis_result": {
-                "my_star": my_star, 
-                "strength": self.destiny_data.get('strength', {}),
-                "geokguk": self.destiny_data.get('geokguk', {}),
-                "yongshin": self.destiny_data.get('yongshin', {}),
-                "mechanics": {
-                    "gongmang": mech.get_gongmang(self.day_master, self.bazi_data["day"]["branch"]),
-                    "elements_dist": self.destiny_data.get('elements_dist', {}),
-                    "tonggeun": self.destiny_data.get('tonggeun')
-                },
-                "practical": {"career": self.destiny_data.get('career',{}), "health": self.destiny_data.get('health',[])},
-                "dynamics": {"special_stars": self.destiny_data.get('special_stars',[]), "disasters": self.destiny_data.get('disasters',[])},
-                "unse": self.unse_data,
-                "timeline": {"daewun": self.destiny_data.get('daewun',{}), "sewun": self.destiny_data.get('sewun',[])},
-                "secret_readings": self.destiny_data.get('secrets'),
-                "fengshui": fengshui_data,
-                "ideal_partner": ghap.get_ideal_partner(self.bazi_for_engine, self.destiny_data.get('yongshin',{}), my_star.get("number",1), self.gender)
-            }
+    bazi_data = {
+        "year": {
+            "stem": y_stem, "stem_tg": get_tg(y_stem), 
+            "branch": y_branch, "branch_tg": get_tg(y_branch),
+            "napeum": mech.get_napeum(y_stem, y_branch)
+        },
+        "month": {
+            "stem": m_stem, "stem_tg": get_tg(m_stem), 
+            "branch": m_branch, "branch_tg": get_tg(m_branch),
+            "napeum": mech.get_napeum(m_stem, m_branch)
+        },
+        "day": {
+            "stem": d_stem, "stem_tg": "일간", 
+            "branch": d_branch, "branch_tg": get_tg(d_branch),
+            "napeum": mech.get_napeum(d_stem, d_branch)
+        },
+        "hour": {
+            "stem": h_stem, "stem_tg": get_tg(h_stem), 
+            "branch": h_branch, "branch_tg": get_tg(h_branch),
+            "napeum": mech.get_napeum(h_stem, h_branch)
         }
-
-# ==========================================
-# 4. 엔드포인트 라우팅
-# ==========================================
-
-# 🚨 [V2.0 전용 독립 엔드포인트 신설]
-@app.post("/api/hongtaek")
-@limiter.limit("15/minute")
-def hongtaek_endpoint(request: Request, req: HongtaekRequest):
-    """
-    V1 레거시에 얽매이지 않고, 순수한 ExplainableNode를 포함한 
-    UltimateHongtaekResponse 객체를 100% 직렬화하여 반환합니다.
-    """
-    if not HONGTAEK_AVAILABLE or hongtaek_engine is None:
-        logger.error("V2.0 혼택 엔진 모듈 로드 실패")
-        raise HTTPException(status_code=503, detail="V2.0 혼택 엔진이 오프라인 상태입니다.")
+    }
 
     try:
-        m_dt_kst, _, _, _ = parse_and_adjust_dt(req.m_datetime_str, req.m_timezone, req.m_calendar_type.value, req.m_unknown_time)
-        f_dt_kst, _, _, _ = parse_and_adjust_dt(req.f_datetime_str, req.f_timezone, req.f_calendar_type.value, req.f_unknown_time)
-        
-        m_astro = astro.calculate_bazi(m_dt_kst, req.m_gender.value, req.m_longitude, not req.m_unknown_time)
-        f_astro = astro.calculate_bazi(f_dt_kst, req.f_gender.value, req.f_longitude, not req.f_unknown_time)
-        
-        target_branch = None
-        if req.target_wedding_date:
-            try:
-                tw_dt = datetime.strptime(req.target_wedding_date, "%Y-%m-%d")
-                tw_astro = astro.calculate_bazi(tw_dt, "M") 
-                target_branch = tw_astro.get("bazi", {}).get("day_pillar", ["-", "-"])[1]
-            except Exception as e:
-                logger.error(f"택일 날짜 파싱 실패: {e}", exc_info=True)
-
-        m_data = {
-            "year": m_dt_kst.year, "month": m_dt_kst.month, "day": m_dt_kst.day,
-            "time_index": get_time_index(m_dt_kst.hour) if not req.m_unknown_time else 1,
-            "branch": m_astro.get("bazi", {}).get("year_pillar", ["-", "-"])[1],
-            "day_pillar": {"간": m_astro.get("bazi", {}).get("day_pillar", ["-", "-"])[0], "지": m_astro.get("bazi", {}).get("day_pillar", ["-", "-"])[1]}
+        hidden_stems = {
+            "year": mech.get_hidden_stems(y_branch),
+            "month": mech.get_hidden_stems(m_branch),
+            "day": mech.get_hidden_stems(d_branch),
+            "hour": {"initial": ["-"], "middle": ["-"], "main": ["-"]} if unknown_time else mech.get_hidden_stems(h_branch)
         }
-        f_data = {
-            "year": f_dt_kst.year, "month": f_dt_kst.month, "day": f_dt_kst.day,
-            "time_index": get_time_index(f_dt_kst.hour) if not req.f_unknown_time else 1,
-            "branch": f_astro.get("bazi", {}).get("year_pillar", ["-", "-"])[1],
-            "day_pillar": {"간": f_astro.get("bazi", {}).get("day_pillar", ["-", "-"])[0], "지": f_astro.get("bazi", {}).get("day_pillar", ["-", "-"])[1]}
-        }
+    except Exception:
+        hidden_stems = {}
 
-        # V2.0 룰 엔진 가동
-        report_obj = hongtaek_engine.generate_full_report(m_data, f_data, target_branch)
-        
-        # Data Contract 손실 없이 Pydantic 100% 직렬화 반환
-        return report_obj.model_dump() if hasattr(report_obj, 'model_dump') else report_obj.dict()
-
+    bazi_for_engine = {
+        "year": bazi_data["year"], 
+        "month": bazi_data["month"],
+        "day": bazi_data["day"], 
+        "hour": bazi_data["hour"]
+    }
+    
+    try:
+        geokguk = yong.determine_geokguk(bazi_for_engine, hidden_stems)
+        strength = yong.determine_strength(bazi_for_engine)
+        yongshin_data = yong.determine_yongshin(bazi_for_engine, strength)
+        geokguk["name_clean"] = geokguk.get("name_clean", geokguk.get("name", ""))
+        geokguk["hanja_clean"] = geokguk.get("hanja_clean", geokguk.get("hanja", ""))
     except Exception as e:
-        logger.error(f"혼택 파이프라인 치명적 오류: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="혼택 엔진 연산 중 시스템 오류가 발생했습니다.")
+        logger.error(f"Yongshin Error: {e}")
+        geokguk, strength, yongshin_data = {}, {}, {}
 
+    try:
+        valid_stems = [s for s in [y_stem, m_stem, d_stem, h_stem] if s != "-"]
+        valid_branches = [b for b in [y_branch, m_branch, d_branch, h_branch] if b != "-"]
+        elements_dist = mech.get_five_elements_distribution(valid_stems, valid_branches)
+    except Exception:
+        elements_dist = {}
+    
+    try:
+        career = prac.analyze_career(geokguk, yongshin_data)
+    except Exception:
+        career = {}
+
+    try:
+        health_raw = prac.analyze_health(elements_dist, gender=gender)
+    except TypeError:
+        try:
+            health_raw = prac.analyze_health(elements_dist)
+        except Exception:
+            health_raw = []
+    except Exception:
+        health_raw = []
+    
+    elements_imbalance = []
+    for h in health_raw:
+        if h.get("element") != "종합":
+            elements_imbalance.append({
+                "element": h.get("element", ""), 
+                "type": h.get("status_code", "양호"), 
+                "original_status": h.get("status", ""), 
+                "count": elements_dist.get(h.get("element", ""), 0), 
+                "desc": h.get("advice", ""),
+                "organ": h.get("organ", ""),     
+                "symptom": h.get("symptom", "")  
+            })
+
+    try:
+        special_stars = dyn.scan_special_stars({"year": y_stem, "month": m_stem, "day": d_stem, "hour": h_stem}, {"year": y_branch, "month": m_branch, "day": d_branch, "hour": h_branch})
+        disasters = dyn.scan_disasters(valid_branches)
+    except Exception:
+        special_stars, disasters = [], []
+
+    try:
+        classical_reading = clas.generate_classical_reading(bazi_for_engine, yongshin_data, strength, gender, real_lunar_m, real_lunar_d)
+    except TypeError:
+        try:
+            classical_reading = clas.generate_classical_reading(bazi_for_engine, yongshin_data, strength)
+        except Exception:
+            classical_reading = "고전 엔진 연산 중 오류가 발생했습니다."
+    except Exception as e:
+        logger.error(f"Classical Engine Error: {e}")
+        classical_reading = "고전 엔진 내부 연산 오류."
+
+    try:
+        tonggeun_branches = {"year": y_branch, "month": m_branch, "day": d_branch}
+        if not unknown_time: tonggeun_branches["hour"] = h_branch
+        tonggeun = mech.check_tonggeun(day_master, tonggeun_branches)
+    except Exception:
+        tonggeun = None
+
+    try:
+        now_kst = datetime.utcnow() + timedelta(hours=9)
+        now_astro = astro.calculate_bazi(now_kst, gender)
+        now_y_b = now_astro.get("bazi", {}).get("year_pillar", ["-", "-"])[1]
+        now_m_b = now_astro.get("bazi", {}).get("month_pillar", ["-", "-"])[1]
+        now_d_b = now_astro.get("bazi", {}).get("day_pillar", ["-", "-"])[1]
+
+        unse_data = {
+            "year": {**unse.analyze_sewun(bazi_for_engine, now_y_b, mech.get_ten_god(day_master, now_y_b), yongshin_data), "stem": now_astro.get("bazi", {}).get("year_pillar", ["-", "-"])[0], "branch": now_y_b},
+            "month": {"month_num": now_kst.month, "stem": now_astro.get("bazi", {}).get("month_pillar", ["-", "-"])[0], "branch": now_m_b, "data": unse.analyze_wolgeon(bazi_for_engine, now_m_b, mech.get_ten_god(day_master, now_m_b), yongshin_data)},
+            "day": {"day_num": now_kst.day, "stem": now_astro.get("bazi", {}).get("day_pillar", ["-", "-"])[0], "branch": now_d_b, "data": unse.analyze_iljin(bazi_for_engine, now_d_b, mech.get_ten_god(day_master, now_d_b), yongshin_data)}
+        }
+    except Exception as e:
+        logger.error(f"Unse Error: {e}")
+        unse_data = None
+
+    try:
+        daewun_raw = mech.get_daewun_sequence(gender, y_stem, m_stem, m_branch, int(daewun_num), 10)
+        if isinstance(daewun_raw, dict) and "timeline" in daewun_raw:
+            timeline_list = daewun_raw["timeline"]
+        elif isinstance(daewun_raw, list):
+            timeline_list = daewun_raw
+            daewun_raw = {"timeline": timeline_list}
+        else:
+            timeline_list = []
+            daewun_raw = {"timeline": []}
+            
+        for dw in timeline_list:
+            dw["stem_tg"] = get_tg(dw.get("stem", "-"))
+            dw["branch_tg"] = get_tg(dw.get("branch", "-"))
+    except Exception as e:
+        logger.error(f"Daewun sequence error (Backward Calculation Failed): {e}")
+        daewun_raw = {"timeline": []}
+        
+    try:
+        sewun_raw = mech.get_sewun_sequence(datetime.utcnow().year + 9 - 4, 10)
+        if isinstance(sewun_raw, list):
+            for sw in sewun_raw:
+                sw["stem_tg"] = get_tg(sw.get("stem", "-"))
+                sw["branch_tg"] = get_tg(sw.get("branch", "-"))
+        else:
+            sewun_raw = []
+    except Exception as e:
+        logger.error(f"Sewun sequence error: {e}")
+        sewun_raw = []
+
+    try:
+        secret_readings_data = sec.get_secrets(bazi_for_engine, daewun_raw)
+    except Exception:
+        secret_readings_data = None
+
+    try:
+        my_star = ghap.get_bonmyeongseong(dt_kst.year, gender)
+    except TypeError:
+        try:
+            my_star = ghap.get_bonmyeongseong(dt_kst.year)
+        except Exception:
+            my_star = {"number": 1, "name": "알 수 없음", "hanja": "無"}
+    except Exception:
+        my_star = {"number": 1, "name": "알 수 없음", "hanja": "無"}
+
+    try:
+        fengshui_honmyeong = feng.calculate_honmyeong_gung(dt_kst.year, gender)
+        fengshui_dirs = feng.get_auspicious_directions(fengshui_honmyeong.get("number", 1))
+        fengshui_data = {
+            "honmyeong": fengshui_honmyeong,
+            "directions": fengshui_dirs
+        }
+    except Exception as e:
+        logger.error(f"FengShui Routing Error: {str(e)}")
+        fengshui_data = None
+
+    gunghap_data = None
+    ideal_partner_data = None
+    
+    if partner_info:
+        try:
+            p_dt = partner_info["dt"]
+            p_gender = partner_info["gender"]
+            p_lon = partner_info["longitude"]
+            p_unk_time = partner_info["unknown_time"]
+            p_lunar_m = partner_info.get("lunar_month", 1)
+            
+            p_astro = astro.calculate_bazi(p_dt, p_gender, p_lon, False if p_unk_time else True, True)
+            p_bazi_raw = p_astro.get("bazi", {})
+            p_day_master = p_bazi_raw.get("day_pillar", ["-", "-"])[0]
+            
+            def get_p_tg(stem_or_branch):
+                if stem_or_branch == "-": return "-"
+                try:
+                    return mech.get_ten_god(p_day_master, stem_or_branch)
+                except:
+                    return "-"
+
+            p_h_s = "-" if p_unk_time else p_bazi_raw.get("hour_pillar", ["-", "-"])[0]
+            p_h_b = "-" if p_unk_time else p_bazi_raw.get("hour_pillar", ["-", "-"])[1]
+
+            p_bazi_for_engine = {
+                "year": {"stem": p_bazi_raw.get("year_pillar", ["-", "-"])[0], "branch": p_bazi_raw.get("year_pillar", ["-", "-"])[1], "stem_tg": get_p_tg(p_bazi_raw.get("year_pillar", ["-", "-"])[0]), "branch_tg": get_p_tg(p_bazi_raw.get("year_pillar", ["-", "-"])[1])},
+                "month": {"stem": p_bazi_raw.get("month_pillar", ["-", "-"])[0], "branch": p_bazi_raw.get("month_pillar", ["-", "-"])[1], "stem_tg": get_p_tg(p_bazi_raw.get("month_pillar", ["-", "-"])[0]), "branch_tg": get_p_tg(p_bazi_raw.get("month_pillar", ["-", "-"])[1])},
+                "day": {"stem": p_bazi_raw.get("day_pillar", ["-", "-"])[0], "branch": p_bazi_raw.get("day_pillar", ["-", "-"])[1], "stem_tg": "일간", "branch_tg": get_p_tg(p_bazi_raw.get("day_pillar", ["-", "-"])[1])},
+                "hour": {"stem": p_h_s, "branch": p_h_b, "stem_tg": get_p_tg(p_h_s), "branch_tg": get_p_tg(p_h_b)}
+            }
+            
+            p_valid_stems = [p_bazi_for_engine[k]["stem"] for k in p_bazi_for_engine if p_bazi_for_engine[k]["stem"] != "-"]
+            p_valid_branches = [p_bazi_for_engine[k]["branch"] for k in p_bazi_for_engine if p_bazi_for_engine[k]["branch"] != "-"]
+            p_elements_dist = mech.get_five_elements_distribution(p_valid_stems, p_valid_branches)
+            
+            p_strength = yong.determine_strength(p_bazi_for_engine)
+            p_yongshin_data = yong.determine_yongshin(p_bazi_for_engine, p_strength)
+
+            try:
+                p_star = ghap.get_bonmyeongseong(p_dt.year, p_gender)
+            except TypeError:
+                try:
+                    p_star = ghap.get_bonmyeongseong(p_dt.year)
+                except Exception:
+                    p_star = {"number": 1, "name": "알 수 없음", "hanja": "無"}
+            except Exception:
+                p_star = {"number": 1, "name": "알 수 없음", "hanja": "無"}
+            
+            is_m = (gender == "M")
+            m_bazi = bazi_for_engine if is_m else p_bazi_for_engine
+            f_bazi = p_bazi_for_engine if is_m else bazi_for_engine
+            
+            m_l_m = real_lunar_m if is_m else p_lunar_m
+            f_l_m = p_lunar_m if is_m else real_lunar_m
+            
+            m_yong = yongshin_data if is_m else p_yongshin_data
+            f_yong = p_yongshin_data if is_m else yongshin_data
+            
+            m_elem = elements_dist if is_m else p_elements_dist
+            f_elem = p_elements_dist if is_m else elements_dist
+            
+            m_st = my_star.get("number", 1) if is_m else p_star.get("number", 1)
+            f_st = p_star.get("number", 1) if is_m else my_star.get("number", 1)
+
+            gunghap_data = ghap.get_ultimate_compatibility(
+                m_bazi=m_bazi, f_bazi=f_bazi, 
+                m_lunar_m=m_l_m, f_lunar_m=f_l_m, 
+                m_yongshin=m_yong, f_yongshin=f_yong, 
+                m_elements=m_elem, f_elements=f_elem, 
+                m_star=m_st, f_star=f_st
+            )
+            
+            gunghap_data["my_star"] = my_star
+            gunghap_data["partner_star"] = p_star
+            
+        except Exception as e:
+            logger.error(f"Gunghap Routing Error: {str(e)}", exc_info=True)
+            gunghap_data = {
+                "fatal_warnings": ["궁합 분석 중 엔진 내부 충돌이 발생하여 연산이 중단되었습니다."],
+                "elemental_salvation": {"score": 0, "desc": "데이터를 해석할 수 없습니다."},
+                "match_3d": {"mental": {"status": "오류"}, "physical": {"status": "오류"}},
+                "gugung_matrix": {"status": "오류", "desc": "엔진 렌더링 실패"}
+            }
+    else:
+        try:
+            ideal_partner_data = ghap.get_ideal_partner(bazi_for_engine, yongshin_data, my_star.get("number", 1), gender)
+        except TypeError:
+            try:
+                ideal_partner_data = ghap.get_ideal_partner(bazi_for_engine, yongshin_data, my_star.get("number", 1))
+            except Exception:
+                ideal_partner_data = None
+        except Exception as e:
+            logger.error(f"Ideal Partner Routing Error: {str(e)}", exc_info=True)
+            ideal_partner_data = None
+
+    try:
+        metadata_dict = {}
+        terms_to_fetch = set(["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸", "子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥", "비견", "겁재", "식신", "상관", "편재", "정재", "편관", "정관", "편인", "정인", "공망"])
+        for p in bazi_data.values():
+            terms_to_fetch.add(p.get('stem_tg', ''))
+            terms_to_fetch.add(p.get('branch_tg', ''))
+            
+        for term in terms_to_fetch:
+            if term and term != "일간" and term != "-": 
+                original_meta = mech.get_metadata(term)
+                if isinstance(original_meta, str):
+                    meta = {"hanja": "", "meaning": original_meta}
+                elif isinstance(original_meta, dict):
+                    meta = copy.deepcopy(original_meta)
+                else:
+                    meta = {"hanja": "", "meaning": ""}
+                metadata_dict[term] = meta
+    except Exception as e:
+        logger.error(f"Metadata fetch error: {e}")
+        metadata_dict = {}
+
+    def get_napeum_desc(pillar_type, napeum_full):
+        if not napeum_full or napeum_full == "-" or napeum_full == "알수없음": return "납음오행 정보가 없습니다."
+        core_name = napeum_full.split("(")[0] if "(" in napeum_full else napeum_full
+        base_desc = NAPEUM_RICH_DESC.get(core_name, "-")
+        if pillar_type == "year": return f"{base_desc} 초년과 조상궁에 이 웅장한 파동이 깃들어 있습니다."
+        elif pillar_type == "month": return f"{base_desc} 청년기와 사회적 성취(직업)에 이 파동이 핵심적으로 작용합니다."
+        elif pillar_type == "day": return f"{base_desc} 중년기와 본인/배우자의 내면 깊은 곳에 이 파동이 흐르고 있습니다."
+        else: return f"{base_desc} 말년과 자식궁, 그리고 남모르는 비밀스러운 영혼의 파동입니다."
+
+    napeum_reading = [
+        {"pillar": "연주 (초년)", "full": bazi_data["year"]["napeum"], "desc": get_napeum_desc("year", bazi_data["year"]["napeum"])},
+        {"pillar": "월주 (청년)", "full": bazi_data["month"]["napeum"], "desc": get_napeum_desc("month", bazi_data["month"]["napeum"])},
+        {"pillar": "일주 (중년)", "full": bazi_data["day"]["napeum"], "desc": get_napeum_desc("day", bazi_data["day"]["napeum"])},
+    ]
+    if not unknown_time:
+        napeum_reading.append({"pillar": "시주 (말년)", "full": bazi_data["hour"]["napeum"], "desc": get_napeum_desc("hour", bazi_data["hour"]["napeum"])})
+
+    return {
+        "metadata": {
+            "origin_kst": astro_res.get("origin_time", ""),
+            "true_solar_time": astro_res.get("corrected_time", "") if not unknown_time else "시간 모름 (보정 생략)",
+            "is_yaja_applied": astro_res.get("options", {}).get("yaja_applied", False),
+            "is_dst_applied": is_dst_applied
+        },
+        "bazi_data": bazi_data,
+        "hidden_stems": hidden_stems,
+        "analysis_result": {
+            "my_star": my_star, 
+            "strength": strength,
+            "geokguk": geokguk,
+            "yongshin": yongshin_data,
+            "mechanics": {
+                "gongmang": mech.get_gongmang(d_stem, d_branch),
+                "elements_dist": elements_dist,
+                "tonggeun": tonggeun,
+                "metadata": metadata_dict
+            },
+            "practical": {"career": career, "health": health_raw},
+            "elements_imbalance": elements_imbalance,
+            "dynamics": {"special_stars": special_stars, "disasters": disasters},
+            "unse": unse_data,
+            "napeum_reading": napeum_reading,
+            "timeline": {"daewun": daewun_raw, "sewun": sewun_raw},
+            "gunghap": gunghap_data,
+            "ideal_partner": ideal_partner_data,
+            "secret_readings": secret_readings_data,
+            "fengshui": fengshui_data,
+            "classical": {"reading": classical_reading},
+            "gender": "Male" if gender == "M" else "Female",
+            "applied_traditional": apply_trad
+        }
+    }
+
+@app.get("/api/dictionary")
+@limiter.limit("30/minute")
+def dictionary_endpoint(request: Request, q: str = ""):
+    results = dict_db.search(q)
+    return results
+
+@app.get("/api/faq")
+@limiter.limit("20/minute")
+def faq_endpoint(request: Request):
+    return FAQ_DB
 
 @app.post("/api/bazi")
 @limiter.limit("15/minute")
 def bazi_endpoint(request: Request, req: BaziRequest):
-    """개인 사주 조회 (V1 레거시 통합 파이프라인)"""
     try:
         now_kst = datetime.utcnow() + timedelta(hours=9)
-        cache_key = get_cache_key(req.dict(), now_kst.strftime("%Y-%m-%d"))
-        if cache_key in BAZI_CACHE: 
+        today_str = now_kst.strftime("%Y-%m-%d")
+        cache_key = get_cache_key(req.dict(), today_str)
+        
+        if cache_key in BAZI_CACHE:
+            logger.info("🔥 Bazi Cache Hit! CPU 연산 생략.")
             return BAZI_CACHE[cache_key]
 
-        dt_kst, real_lunar_m, real_lunar_d, is_dst = parse_and_adjust_dt(req.datetime_str, req.timezone, req.calendar_type.value, req.unknown_time)
-        
         try:
-            astro_res = astro.calculate_bazi(dt_kst, req.gender.value, float(req.longitude) if req.longitude else 127.0, not req.unknown_time, req.apply_yaja)
-        except Exception as e:
-            logger.error(f"Core Astro Engine Error: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail="사주 명식 코어 연산 중 오류가 발생했습니다.")
+            longitude = float(req.longitude) if req.longitude else 127.0
+        except ValueError:
+            longitude = 127.0
+            
+        try:
+            dt_input = datetime.strptime(req.datetime_str, "%Y-%m-%d %H:%M")
+        except ValueError as ve:
+            raise HTTPException(status_code=400, detail=f"날짜 형식이 올바르지 않습니다: {str(ve)}")
         
-        # Builder를 통한 개인 파이프라인 조립
-        builder = BaziResponseBuilder(dt_kst, astro_res, req.gender.value, req.unknown_time, req.daewun_num, real_lunar_m, real_lunar_d, is_dst)
-        final_result = builder.build()
+        if dt_input.year <= 1582:
+            raise HTTPException(status_code=400, detail="1582년 10월 이전의 날짜는 연산이 불가능합니다.")
+        
+        if req.timezone != 9:
+            dt_kst_base = dt_input - timedelta(hours=req.timezone) + timedelta(hours=9)
+        else:
+            dt_kst_base = dt_input
+            
+        dt_kst, is_dst_applied = adjust_korean_dst(dt_kst_base)
+        
+        cal = KoreanLunarCalendar()
+        if req.calendar_type.value in ["lunar", "lunar_leap"]:
+            is_leap = (req.calendar_type.value == "lunar_leap")
+            if cal.setLunarDate(dt_kst.year, dt_kst.month, dt_kst.day, is_leap):
+                dt_kst = datetime(cal.solarYear, cal.solarMonth, cal.solarDay, dt_kst.hour, dt_kst.minute)
+            else:
+                raise HTTPException(status_code=400, detail="유효하지 않은 음력 날짜입니다.")
+        else:
+            cal.setSolarDate(dt_kst.year, dt_kst.month, dt_kst.day)
+
+        real_lunar_m = cal.lunarMonth
+        real_lunar_d = cal.lunarDay
+            
+        astro_res = astro.calculate_bazi(
+            dt_kst, req.gender.value, longitude, 
+            apply_true_solar=False if req.unknown_time else req.apply_true_solar, 
+            apply_yaja=req.apply_yaja
+        )
+        
+        partner_info = None
+        if req.partner_datetime_str:
+            try:
+                p_lon = float(req.partner_longitude) if req.partner_longitude else 127.0
+            except ValueError:
+                p_lon = 127.0
+
+            p_dt_input = datetime.strptime(req.partner_datetime_str, "%Y-%m-%d %H:%M")
+            if p_dt_input.year <= 1582:
+                raise HTTPException(status_code=400, detail="파트너의 생년월일이 1582년 이전이므로 연산이 불가능합니다.")
+
+            if req.partner_timezone != 9:
+                p_dt_kst_base = p_dt_input - timedelta(hours=req.partner_timezone) + timedelta(hours=9)
+            else:
+                p_dt_kst_base = p_dt_input
+                
+            p_dt_kst, _ = adjust_korean_dst(p_dt_kst_base)
+                
+            if req.partner_calendar_type.value in ["lunar", "lunar_leap"]:
+                p_cal = KoreanLunarCalendar()
+                p_is_leap = (req.partner_calendar_type.value == "lunar_leap")
+                if p_cal.setLunarDate(p_dt_kst.year, p_dt_kst.month, p_dt_kst.day, p_is_leap):
+                    partner_dt = datetime(p_cal.solarYear, p_cal.solarMonth, p_cal.solarDay, p_dt_kst.hour, p_dt_kst.minute)
+                else:
+                    partner_dt = p_dt_kst
+            else:
+                partner_dt = p_dt_kst
+                
+            temp_cal = KoreanLunarCalendar()
+            temp_cal.setSolarDate(partner_dt.year, partner_dt.month, partner_dt.day)
+            p_lunar_month = temp_cal.lunarMonth
+                
+            partner_info = {
+                "dt": partner_dt, 
+                "gender": req.partner_gender.value if req.partner_gender else None, 
+                "longitude": p_lon, 
+                "unknown_time": req.partner_unknown_time,
+                "lunar_month": p_lunar_month
+            }
+
+        final_result = build_bridge_response(
+            dt_kst, astro_res, req.gender.value, req.daewun_num, partner_info, 
+            req.apply_traditional_lunar, req.lunar_month, req.unknown_time, 
+            real_lunar_m, real_lunar_d, is_dst_applied
+        )
 
         BAZI_CACHE[cache_key] = final_result
         return final_result
 
     except HTTPException as http_exc:
+        logger.warning(f"Validation Error: {http_exc.detail}")
         raise http_exc
     except Exception as e:
         logger.error(f"Backend Server Error: {str(e)}", exc_info=True)
@@ -456,26 +682,84 @@ def bazi_endpoint(request: Request, req: BaziRequest):
 def calendar_endpoint(request: Request, req: CalendarRequest):
     try:
         now_kst = datetime.utcnow() + timedelta(hours=9)
-        cache_key = get_cache_key(req.dict(), now_kst.strftime("%Y-%m-%d") + f"_{req.target_year}_{req.target_month}")
-        if cache_key in CALENDAR_CACHE: return CALENDAR_CACHE[cache_key]
-
-        dt_kst, _, _, _ = parse_and_adjust_dt(req.datetime_str, req.timezone, req.calendar_type.value, req.unknown_time)
-            
-        astro_res = astro.calculate_bazi(dt_kst, req.gender.value, 127.0, apply_true_solar=False, apply_yaja=True)
-        bazi_raw = astro_res.get("bazi", {})
-        day_master = bazi_raw.get("day_pillar", ["-", "-"])[0]
+        today_str = now_kst.strftime("%Y-%m-%d")
         
-        y_str, h_str, g_str = "", "", ""
+        cache_seed = req.dict()
+        cache_key = get_cache_key(cache_seed, today_str + f"_{req.target_year}_{req.target_month}")
+        
+        if cache_key in CALENDAR_CACHE:
+            logger.info("📅 Calendar Cache Hit! 한 달 치 궤도 연산 생략.")
+            return CALENDAR_CACHE[cache_key]
+
         try:
-            bazi_for_engine = {"year": {"stem": bazi_raw.get("year_pillar", ["-", "-"])[0], "branch": bazi_raw.get("year_pillar", ["-", "-"])[1]},
-                               "month": {"stem": bazi_raw.get("month_pillar", ["-", "-"])[0], "branch": bazi_raw.get("month_pillar", ["-", "-"])[1]},
-                               "day": {"stem": day_master, "branch": bazi_raw.get("day_pillar", ["-", "-"])[1]},
-                               "hour": {"stem": bazi_raw.get("hour_pillar", ["-", "-"])[0], "branch": bazi_raw.get("hour_pillar", ["-", "-"])[1]}}
+            longitude = float(req.longitude) if req.longitude else 127.0
+        except ValueError:
+            longitude = 127.0
+            
+        try:
+            dt_input = datetime.strptime(req.datetime_str, "%Y-%m-%d %H:%M")
+        except ValueError as ve:
+            raise HTTPException(status_code=400, detail=f"날짜 형식이 올바르지 않습니다: {str(ve)}")
+        
+        if dt_input.year <= 1582:
+            raise HTTPException(status_code=400, detail="1582년 이전은 연산할 수 없습니다.")
+        
+        if req.timezone != 9:
+            dt_kst_base = dt_input - timedelta(hours=req.timezone) + timedelta(hours=9)
+        else:
+            dt_kst_base = dt_input
+            
+        dt_kst, _ = adjust_korean_dst(dt_kst_base)
+        
+        cal = KoreanLunarCalendar()
+        if req.calendar_type.value in ["lunar", "lunar_leap"]:
+            is_leap = (req.calendar_type.value == "lunar_leap")
+            if cal.setLunarDate(dt_kst.year, dt_kst.month, dt_kst.day, is_leap):
+                dt_kst = datetime(cal.solarYear, cal.solarMonth, cal.solarDay, dt_kst.hour, dt_kst.minute)
+            else:
+                raise HTTPException(status_code=400, detail="유효하지 않은 음력 날짜입니다.")
+        else:
+            cal.setSolarDate(dt_kst.year, dt_kst.month, dt_kst.day)
+            
+        astro_res = astro.calculate_bazi(
+            dt_kst, req.gender.value, longitude, 
+            apply_true_solar=False if req.unknown_time else req.apply_true_solar, 
+            apply_yaja=req.apply_yaja
+        )
+        
+        bazi_raw = astro_res.get("bazi", {})
+        y_stem, y_branch = bazi_raw.get("year_pillar", ["-", "-"])[0], bazi_raw.get("year_pillar", ["-", "-"])[1]
+        m_stem, m_branch = bazi_raw.get("month_pillar", ["-", "-"])[0], bazi_raw.get("month_pillar", ["-", "-"])[1]
+        d_stem, d_branch = bazi_raw.get("day_pillar", ["-", "-"])[0], bazi_raw.get("day_pillar", ["-", "-"])[1]
+        day_master = d_stem
+        
+        if req.unknown_time:
+            h_stem, h_branch = "-", "-"
+        else:
+            h_stem, h_branch = bazi_raw.get("hour_pillar", ["-", "-"])[0], bazi_raw.get("hour_pillar", ["-", "-"])[1]
+
+        def get_tg(stem_or_branch):
+            if stem_or_branch == "-": return "-"
+            try:
+                return mech.get_ten_god(day_master, stem_or_branch)
+            except Exception:
+                return "-"
+
+        bazi_for_engine = {
+            "year": {"stem": y_stem, "branch": y_branch, "stem_tg": get_tg(y_stem), "branch_tg": get_tg(y_branch)},
+            "month": {"stem": m_stem, "branch": m_branch, "stem_tg": get_tg(m_stem), "branch_tg": get_tg(m_branch)},
+            "day": {"stem": d_stem, "branch": d_branch, "stem_tg": "일간", "branch_tg": get_tg(d_branch)},
+            "hour": {"stem": h_stem, "branch": h_branch, "stem_tg": get_tg(h_stem), "branch_tg": get_tg(h_branch)}
+        }
+        
+        try:
             strength = yong.determine_strength(bazi_for_engine)
             yongshin_data = yong.determine_yongshin(bazi_for_engine, strength)
-            y_str, h_str, g_str = str(yongshin_data.get("yongshin", "")), str(yongshin_data.get("huishin", "")), str(yongshin_data.get("gishin", ""))
-        except Exception as e: 
-            logger.error(f"Calendar yongshin error: {e}", exc_info=True)
+            y_str = str(yongshin_data.get("yongshin", ""))
+            h_str = str(yongshin_data.get("huishin", ""))
+            g_str = str(yongshin_data.get("gishin", ""))
+        except Exception:
+            y_str, h_str, g_str = "", "", ""
 
         days_in_month = calendar.monthrange(req.target_year, req.target_month)[1]
         days_array = []
@@ -484,43 +768,59 @@ def calendar_endpoint(request: Request, req: CalendarRequest):
             try:
                 target_dt = datetime(req.target_year, req.target_month, day, 12, 0)
                 daily_astro = astro.calculate_bazi(target_dt, req.gender.value)
-                iljin_branch = daily_astro.get("bazi", {}).get("day_pillar", ["-", "-"])[1]
-                iljin_tg = mech.get_ten_god(day_master, iljin_branch)
                 
-                status, advice = "평(平)", "평온하고 무난한 하루입니다."
-                if iljin_tg in y_str or iljin_tg in h_str: status, advice = "길(吉)", "수호신의 기운이 돕는 길일입니다."
-                elif iljin_tg in g_str: status, advice = "흉(凶)", "기운이 탁해지고 판단력이 흐려지는 날입니다."
+                iljin_stem = daily_astro.get("bazi", {}).get("day_pillar", ["-", "-"])[0]
+                iljin_branch = daily_astro.get("bazi", {}).get("day_pillar", ["-", "-"])[1]
+                iljin_full = f"{iljin_stem}{iljin_branch}"
+                
+                iljin_tg = get_tg(iljin_branch)
+                branch_elem = unse._get_element(iljin_branch) if hasattr(unse, '_get_element') else ""
+                
+                status = "평(平)"
+                advice = "평온하고 무난한 하루입니다. 특별한 굴곡 없이 일상을 유지하십시오."
+                
+                if branch_elem in y_str or branch_elem in h_str or iljin_tg in y_str or iljin_tg in h_str:
+                    status = "길(吉)"
+                    advice = "수호신의 기운이 돕는 길일입니다. 중요한 계약이나 만남을 추진하기에 매우 좋습니다."
+                elif branch_elem in g_str or iljin_tg in g_str:
+                    status = "흉(凶)"
+                    advice = "기운이 탁해지고 판단력이 흐려지는 날입니다. 중요한 결정은 미루고 수성하십시오."
 
                 days_array.append({
                     "date": target_dt.strftime("%Y-%m-%d"),
-                    "iljin": f"{daily_astro.get('bazi', {}).get('day_pillar', ['-', '-'])[0]}{iljin_branch}",
+                    "iljin": iljin_full,
                     "iljin_tg": iljin_tg,
-                    "status": status, "advice": advice
+                    "status": status,
+                    "advice": advice
                 })
-            except Exception as e:
-                logger.error(f"Calendar daily iteration error: {e}", exc_info=True)
+            except Exception:
                 continue
 
-        final_calendar_result = {"user_info": {"day_master": day_master, "yongshin": y_str, "gishin": g_str}, "calendar_data": {"year": req.target_year, "month": req.target_month, "days": days_array}}
+        final_calendar_result = {
+            "user_info": {
+                "day_master": day_master,
+                "yongshin": y_str,
+                "gishin": g_str
+            },
+            "calendar_data": {
+                "year": req.target_year,
+                "month": req.target_month,
+                "days": days_array
+            }
+        }
+
         CALENDAR_CACHE[cache_key] = final_calendar_result
         return final_calendar_result
 
-    except HTTPException as http_exc: raise http_exc
+    except HTTPException as http_exc:
+        logger.warning(f"Validation Error: {http_exc.detail}")
+        raise http_exc
     except Exception as e:
-        logger.error(f"Calendar Error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="캘린더 연산 중 오류가 발생했습니다.")    
-
-@app.get("/api/dictionary")
-@limiter.limit("30/minute")
-def dictionary_endpoint(request: Request, q: str = ""):
-    return dict_db.search(q)
-
-@app.get("/api/faq")
-@limiter.limit("20/minute")
-def faq_endpoint(request: Request):
-    return FAQ_DB
+        logger.error(f"Calendar Engine Error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="캘린더 연산 중 예기치 않은 오류가 발생했습니다.")    
 
 @app.get("/")
 @limiter.limit("100/minute")
 def read_root(request: Request):
-    return {"message": "Myeongri Master Bridge API (V4.5 Refactored & Decoupled with V2.0 Hongtaek)"}
+    return {"message": "마스터 브릿지 API 가동 중 (Phase 5: Safely Restored and Ultimate Bulletproof)"}
+
