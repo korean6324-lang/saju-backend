@@ -248,12 +248,33 @@ def build_bridge_response(dt_kst, astro_res, gender, daewun_num, partner_info, a
         "hour": bazi_data["hour"]
     }
     
+    # 🚨 [HOTFIX] Energy & Balance 데이터 안정성 및 렌더링을 위한 Safe Dictionary 매핑 적용
     try:
-        geokguk = yong.determine_geokguk(bazi_for_engine, hidden_stems)
-        strength = yong.determine_strength(bazi_for_engine)
-        yongshin_data = yong.determine_yongshin(bazi_for_engine, strength)
-        geokguk["name_clean"] = geokguk.get("name_clean", geokguk.get("name", ""))
-        geokguk["hanja_clean"] = geokguk.get("hanja_clean", geokguk.get("hanja", ""))
+        geokguk_raw = yong.determine_geokguk(bazi_for_engine, hidden_stems)
+        strength_raw = yong.determine_strength(bazi_for_engine)
+        yongshin_raw = yong.determine_yongshin(bazi_for_engine, strength_raw)
+
+        strength = {
+            "my_power": strength_raw.get("my_power", 50),
+            "other_power": strength_raw.get("other_power", 50),
+            "status": strength_raw.get("status") or "중화(中和)",
+            "status_code": strength_raw.get("status_code") or "NORMAL",
+            "instability": strength_raw.get("instability", False),
+            "expert_advice": strength_raw.get("expert_advice") or "사주의 전체적인 기운과 체급을 나타냅니다."
+        }
+        
+        geokguk = {
+            "name_clean": geokguk_raw.get("name_clean") or geokguk_raw.get("name") or "기본격",
+            "hanja_clean": geokguk_raw.get("hanja_clean") or geokguk_raw.get("hanja") or "",
+            "desc": geokguk_raw.get("desc") or "자신의 능력을 사회적 가치로 훌륭하게 환원하는 그릇입니다."
+        }
+        
+        yongshin_data = {
+            "yongshin": yongshin_raw.get("yongshin") or "균형과 조화",
+            "huishin": yongshin_raw.get("huishin") or "보완 기운",
+            "gishin": yongshin_raw.get("gishin") or "주의 기운",
+            "desc": yongshin_raw.get("desc") or "일간의 세력과 월령의 기운이 조화를 이루어 중용을 취하고 있습니다. 과도하게 치우치지 않아 평탄하며, 꾸준한 자기개발과 안정을 유지하는 것이 최고의 길입니다."
+        }
     except Exception as e:
         logger.error(f"Yongshin Error: {e}")
         geokguk, strength, yongshin_data = {}, {}, {}
@@ -777,7 +798,7 @@ def calendar_endpoint(request: Request, req: CalendarRequest):
                 branch_elem = unse._get_element(iljin_branch) if hasattr(unse, '_get_element') else ""
                 
                 status = "평(平)"
-                advice = "평온하고 무난한 하루입니다. 특별한 굴곡 없이 일상을 유지하십시오."
+                advice = "평온하고 무난한 하루입니다. 특별한 정곡 없이 일상을 유지하십시오."
                 
                 if branch_elem in y_str or branch_elem in h_str or iljin_tg in y_str or iljin_tg in h_str:
                     status = "길(吉)"
@@ -823,4 +844,3 @@ def calendar_endpoint(request: Request, req: CalendarRequest):
 @limiter.limit("100/minute")
 def read_root(request: Request):
     return {"message": "마스터 브릿지 API 가동 중 (Phase 5: Safely Restored and Ultimate Bulletproof)"}
-
