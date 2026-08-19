@@ -1,4 +1,5 @@
 import uvicorn
+import calendar # 🚨 달력 일수 계산을 위한 내장 라이브러리 추가
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -51,10 +52,10 @@ class PracticalEngine:
         }
 
         self.career_map = {
-            "비견": {"style": "독립형 전문가", "jobs": "프리랜서, 1인 기업가, 운동선수, 지점장, 독자적 기술직", "wealth": "동업은 금물이며, 오직 내 땀방울과 기술로 번 돈만이 내 몫이 되는 자수성가형 재테크.", "marriage_role_M": "가정 내에서 주도권을 쥐려 하나, 때로는 아내를 동등한 친구처럼 대합니다. 고집이 세어 잦은 충돌이 우려되니 서로의 영역을 존중해야 합니다.", "marriage_role_F": "남편에게 통제받기를 극도로 싫어하며, 맞벌이나 사회활동을 통해 철저히 평등한 부부 관계를 지향하는 주체적인 아내입니다."},
+            "비견": {"style": "독립형 전문가", "jobs": "프리랜서, 1인 기업가, 운동선수, 지점장, 독자적 기술직", "wealth": "동업은 금물이며, 오직 내 땀방울과 기술로 번 돈만이 내 몫이 되는 자수성가형 재테크.", "marriage_role_M": "가정 내에서 주도권을 쥐려 하나, 때로는 아내를 동등한 친구처럼 대합니다. 고집이 세어 잦은 충돌이 우려되니 서로의 영역을 존중해야 합니다.", "marriage_role_F": "남편에게 통제받기를 극도로 싫어하며, 맞벌이나 사회활동을 통해 철저히 평등한 부부 관계 지향하는 주체적인 아내입니다."},
             "겁재": {"style": "승부사 및 투자가", "jobs": "M&A 전문가, 펀드매니저, 프로게이머, 경쟁이 치열한 영업직", "wealth": "하이리스크 하이리턴. 공격적인 투자나 주식, 경매 등에 관심이 많아 재물의 기복이 큰 편입니다.", "marriage_role_M": "아내(재성)를 극하는 기운이 강해 무뚝뚝하거나 경제권을 두고 다툴 수 있습니다. 재산 관리를 아내에게 전적으로 맡기는 것이 가정을 지키는 길입니다.", "marriage_role_F": "남편을 두고 다른 여성과 경쟁하는 구도가 되기 쉬우며 자존심이 강합니다. 각자의 경제권을 분리하고 서로의 자존심을 건드리지 않아야 합니다."},
             "식신": {"style": "장인 및 연구가", "jobs": "연구원, 셰프, 개발자(IT), 작가, 제조업, 엔지니어", "wealth": "한 분야를 꾸준히 파고들어 얻는 정당하고 지속적인 수입으로, 마르지 않는 화수분 같은 재물운입니다.", "marriage_role_M": "아내와 자식에게 다정다감하게 베풀고 요리를 해주는 등 매우 가정적이고 따뜻한 남편입니다. 식도락을 즐기며 평화로운 가정을 꾸립니다.", "marriage_role_F": "자식에 대한 맹목적인 사랑과 교육열이 뛰어나며, 남편을 살뜰히 챙기고 집안에 훈훈한 생기를 불어넣는 완벽한 양육자입니다."},
-            "상관": {"style": "크리에이터 및 언변가", "jobs": "마케터, 유튜버/방송인, 강사, 로이어(변호사), 디자이너", "wealth": "뛰어난 아이디어와 말재주를 무기로, 시류를 빠르게 읽고 단기간에 큰 수익을 창출해 내는 능력자입니다.", "marriage_role_M": "틀에 얽매이는 것을 싫어하고 개방적입니다. 센스와 유머로 가정을 즐겁게 하나, 잔소리가 심해질 수 있으니 말을 부드럽게 해야 합니다.", "marriage_role_F": "남편(관성)을 통제하고 가르치려 드는 기질이 있어 부부싸움이 잦을 수 있습니다. 그러나 위기 대처 능력이 뛰어나 가정의 든든한 해결사 역할을 합니다."},
+            "상관": {"style": "크리에이터 및 언변가", "jobs": "마케터, 유튜버/방송인, 강사, 로이어(변호사), 디자이너", "wealth": "뛰어난 아이디어와 말재주를 무기로, 시류를 빠르게 읽고 단기간에 큰 수익 창출해 내는 능력자입니다.", "marriage_role_M": "틀에 얽매이는 것을 싫어하고 개방적입니다. 센스와 유머로 가정을 즐겁게 하나, 잔소리가 심해질 수 있으니 말을 부드럽게 해야 합니다.", "marriage_role_F": "남편(관성)을 통제하고 가르치려 드는 기질이 있어 부부싸움이 잦을 수 있습니다. 그러나 위기 대처 능력이 뛰어나 가정의 든든한 해결사 역할을 합니다."},
             "편재": {"style": "사업가 및 무역가", "jobs": "글로벌 무역, 부동산 개발, 플랫폼 사업가, 유통/물류업", "wealth": "돈의 흐름을 꿰뚫어 보며 씀씀이가 크고 통 큰 투자를 즐깁니다. 사업이나 횡재수로 거대한 부를 쥘 수 있습니다.", "marriage_role_M": "집안에 머물기보다 밖에서 활발히 활동하며 통 큰 스케일로 가세를 일으킵니다. 다만 풍류를 즐길 우려가 있으니 가정에 충실해야 합니다.", "marriage_role_F": "시댁이나 가정의 대소사를 시원시원하게 처리하는 능력자입니다. 스케일이 크고 사회활동이 활발하여 남편을 경제적으로 돕는 여장부입니다."},
             "정재": {"style": "금융가 및 관리자", "jobs": "은행원, 회계사, 재무 관리자, 공기업, 안정적인 프랜차이즈", "wealth": "티끌 모아 태산. 모험을 피하고 저축과 안정적인 적금, 확실한 자산을 선호하는 꼼꼼한 관리형 재테크입니다.", "marriage_role_M": "책임감이 강하고 아내(재성)를 끔찍이 아끼며, 낭비 없이 가계를 건실하게 꾸리는 가장 모범적이고 든든한 남편입니다.", "marriage_role_F": "내조의 여왕입니다. 알뜰한 살림살이로 시댁과 가정을 평안하게 이끌며, 내 가족을 끝까지 보살피는 꼼꼼하고 지혜로운 현모양처입니다."},
             "편관": {"style": "특수직 및 카리스마 리더", "jobs": "군인, 경찰, 검찰, 외과의사, 스타트업 CEO, 리스크 관리자", "wealth": "돈보다는 조직의 명예와 가오(권력)를 중시하며, 큰 위기를 돌파한 후 보상으로 막대한 부가 따라오는 스타일입니다.", "marriage_role_M": "무뚝뚝하고 가부장적일 수 있으나, 외풍이 불 때 온몸으로 비바람을 막아내며 처자식을 지키는 강직한 카리스마의 수호자입니다.", "marriage_role_F": "평범 일상보다는 기복을 즐기며, 카리스마 넘치는 남편을 내조하거나 본인 스스로 억센 환경을 통제하며 가정을 지켜내는 강인한 아내입니다."},
@@ -230,7 +231,7 @@ class FengShuiHontaekEngine:
             rel_type, title, desc, m_stance, f_stance = "여극남", f"오행의 치명적인 상극 작용 ({f_el}극{m_el}, {hanja_map[f_el]}克{hanja_map[m_el]})", f"두 분이 가진 에너지의 본질이 서로를 파괴하는 상극(相剋) 관계에 놓여 있습니다. 자연의 이치상 {f_el}의 기운이 {m_el}의 기운을 무자비하게 억압하는 '{f_el}극{m_el}'의 현상이 발생합니다.", "여성의 강한 주관과 기운에 심리적으로 억압을 받으며, 집 안에서 안식을 찾기 어렵고 기가 눌려 무기력해지기 쉽습니다.", "본인은 그럴 의도가 없더라도 남편의 행동이 성에 차지 않아 끊임없이 통제하려 들며, 이로 인해 스스로도 피로와 예민함을 느낍니다."
         return {"title": title, "desc": desc, "m_stance": m_stance, "f_stance": f_stance, "is_clash": "극" in rel_type}
 
-    def evaluate_hontaek_gunghap(self, m_year: int, f_year: int, m_name: str = "신랑", f_name: str = "신부") -> dict:
+    def evaluate_hontaek_gunghap(self, m_year: int, f_year: int, m_name: str = "파트너1", f_name: str = "파트너2") -> dict:
         result = {"status": "error", "star": "알 수 없음", "type": "-", "desc": "연산 오류"}
         m_gung, f_gung = self.calculate_honmyeong_gung(m_year, 'M'), self.calculate_honmyeong_gung(f_year, 'F')
         m_num, f_num = m_gung.get("number"), f_gung.get("number")
@@ -250,30 +251,16 @@ class FengShuiHontaekEngine:
             star_title = f"3. 팔택명경(八宅明鏡)상 '{matched_star}' 에너지의 형성"
             star_desc = f"역학적으로 '{matched_star}'라는 훌륭한 에너지가 생성됩니다. 깊은 신뢰와 화합을 주관하는 든든한 뼈대가 됩니다." if is_match else f"역학적으로 '{matched_star}'라는 흉한 에너지가 생성됩니다. 대화의 핀트가 엇나가며 스트레스로 곡해되어 전달되는 빈도가 매우 높습니다."
 
-            manifestations = []
-            if is_match and not rel_data["is_clash"]:
-                manifestations.extend([
-                    {"title": "\"함께 있을수록 에너지가 충전된다\"", "desc": "함께 시간을 보내고 같은 공간에서 잠을 잘 때, 서로의 기운이 톱니바퀴처럼 맞물려 방전된 체력이 빠르게 회복되는 느낌을 받게 됩니다."},
-                    {"title": "\"가까워질수록 서로의 능력을 키워준다\"", "desc": f"오행의 조화({m_el_pure}-{f_el_pure})로 인해, 대화를 나눌수록 막혀있던 아이디어가 떠오르고 사회적 성취를 크게 끌어올려 줍니다."},
-                    {"title": "결정적 순간의 가치관 일치", "desc": "주거지 이동이나 금전 문제 등 중요한 결정을 내릴 때, 서로 바라보는 길흉의 체계가 같아 갈등 없이 평탄하게 뜻을 모을 수 있습니다."}
-                ])
-                conclusion = "명리학과 풍수지리적 관점에서 볼 때, 두 분의 결합은 톱니바퀴가 완벽하게 맞물려 돌아가는 최상의 구조입니다. 의구심을 가질 필요 없이 완벽한 천생연분임이 분명합니다."
-            else:
-                manifestations.append({"title": "\"함께 있을수록 이유 없이 피곤하다\"", "desc": "함께 시간을 보내고 같은 공간에서 잠을 자는데도 에너지가 충전되는 것이 아니라 서로 방전되는 느낌을 받게 됩니다."})
-                if rel_data["is_clash"]: manifestations.append({"title": "\"가까워질수록 상처를 준다\"", "desc": f"{rel_data['title'].split(' ')[-1]}의 형국이므로, 무심코 뱉은 말이나 행동이 날카로운 비수처럼 꽂혀 지울 수 없는 상처가 되기 쉽습니다."})
-                else: manifestations.append({"title": "\"채워지지 않는 공허함\"", "desc": "겉으로는 다투지 않더라도, 근본적인 에너지의 방향성이 달라 마음 한구석에 늘 채워지지 않는 외로움과 공허함이 자리 잡기 쉽습니다."})
-                manifestations.append({"title": "결정적 순간의 가치관 충돌", "desc": "주거지 이동, 금전 문제 등 중요한 결정을 내릴 때, 서로 바라보는 방향(길흉의 체계)이 정반대이므로 끝없는 평행선을 달리게 됩니다."})
-                conclusion = "명리학과 풍수지리적 관점에서 볼 때, 두 분의 결합은 톱니바퀴의 규격이 달라 맞물려 돌아갈수록 마모가 심해지는 구조입니다. 서로에게 득보다 실이 많은 인연임이 분명하게 나타납니다."
-
             return {
-                "status": "success", "star": matched_star, "type": interpretation.get("type", ""), "desc": interpretation.get("desc", ""),
-                "deep_report": {
-                    "groom_profile": {"name": f"{m_name} 님 ({m_year}년생 남성)", "gung": f"{m_gung['trigram']}궁", "group": m_gung['group'], "element_desc": self._get_element_desc(m_el_pure)},
-                    "bride_profile": {"name": f"{f_name} 님 ({f_year}년생 여성)", "gung": f"{f_gung['trigram']}궁", "group": f_gung['group'], "element_desc": self._get_element_desc(f_el_pure)},
-                    "is_good": (is_match and not rel_data["is_clash"]),
-                    "reasons": [{"title": freq_title, "desc": freq_desc}, {"title": rel_data['title'], "desc": rel_data['desc'], "m_stance": rel_data['m_stance'], "f_stance": rel_data['f_stance']}, {"title": star_title, "desc": star_desc}],
-                    "manifestations": manifestations, "conclusion": conclusion
-                }
+                "status": "success",
+                "star": matched_star,
+                "type": interpretation.get("type", ""),
+                "desc": interpretation.get("desc", ""),
+                "p1_name": m_name,
+                "p2_name": f_name,
+                "p1_info": {"name": f"{m_name} 님 ({m_year}년생)", "group": m_group, "element": self._get_element_desc(m_el_pure)},
+                "p2_info": {"name": f"{f_name} 님 ({f_year}년생)", "group": f_group, "element": self._get_element_desc(f_el_pure)},
+                "reasoning": f"{freq_title}\n{freq_desc}\n\n{rel_data['title']}\n{rel_data['desc']}",
             }
         return result
 
@@ -307,7 +294,7 @@ class FengShuiHontaekEngine:
         return results
 
 # ==========================================
-# 🚨 1-3. 캡슐화된 우주인연(IdealPartner) 매칭 엔진 (우아함 복원)
+# 🚨 1-3. 캡슐화된 우주인연(IdealPartner) 매칭 엔진
 # ==========================================
 class IdealPartnerEngine:
     def __init__(self, hontaek_engine: FengShuiHontaekEngine):
@@ -335,15 +322,13 @@ class IdealPartnerEngine:
         my_gung = self.hontaek.calculate_honmyeong_gung(user_year, gender)
         my_num, my_group = my_gung.get("number", 1), my_gung.get("group", "알 수 없음")
 
-        # 기존 레거시 데이터 유지
+        # 기존 레거시 데이터 (안전 보존)
         ideal_ilju = f"{next((list(p - {day_stem})[0] for p in self.hontaek.cheon_hap if day_stem in p), '')}{next((list(p - {day_branch})[0] for p in self.hontaek.ji_hap if day_branch in p), '')} 일주"
         best_zodiacs = list({z["zodiac"]: z for z in [{"zodiac": z+"띠", "reason": "천을귀인"} for z in self.hontaek.gwiin_map.get(day_stem, []) if z] + [{"zodiac": self.hontaek.geonrok_map.get(day_stem)+"띠", "reason": "교록격"} if self.hontaek.geonrok_map.get(day_stem) else None] + [{"zodiac": z+"띠", "reason": "삼합"} for z in self.samhap.get(year_branch, []) if z] if z}.values())
-        
         y_str = str(yongshin_data.get("yongshin", "")).replace("None", "").strip()
         h_str = str(yongshin_data.get("huishin", "")).replace("None", "").strip()
         ideal_elements = ", ".join([e for e in [y_str, h_str] if e]) or "균형잡힌 오행"
 
-        # 🚨 [새로 추가된 로직] 우주인연 구궁(九宮) 매칭 데이터 정밀 계산 (스크린샷 UI 대응)
         t_gender = 'F' if gender == 'M' else 'M'
         matrix = DAEYUNYEON_MATRIX.get(my_num, {})
         sg_nums = [k for k, v in matrix.items() if v == "생기"]
@@ -370,9 +355,16 @@ class IdealPartnerEngine:
             "status": "success",
             "target_gender_label": "여성" if t_gender == 'F' else "남성",
             "recommendations": {
-                "생기": {"reasoning": f"고객님은 [{my_group}]에 속합니다. 우주의 이치에 따라 같은 [{my_group}]에 속하는 {sg_name}의 인연을 만나면 대길합니다. 의기투합하면 최강이나 한 번 다투면 뼈아프게 부딪히는 쇠약한 관계(비화·比和)입니다. 이러한 기운이 만나면 부부가 평생 재물이 번창하고 자손이 잘 되는 '생기(生氣)'의 완벽한 결합을 이룹니다.", "years": sg_yrs[:4]},
-                "연년": {"reasoning": f"차선책으로 좋은 인연은 {yn_name}입니다. 깊은 흙 속에서 단단한 광물과 보석이 안전하게 품어지듯(토생금·土生金), 넓은 포용력으로 서로의 가치를 빛내주고 지켜주는 상생의 관계입니다. 부부의 정이 아주 깊어지고 가정이 평안해지는 '연년(延年)'의 길한 결합입니다.", "years": yn_yrs[:4]}
+                "생기": {
+                    "reasoning": f"고객님은 [{my_group}]에 속합니다. 우주의 이치에 따라 같은 [{my_group}]에 속하는 {sg_name}의 인연을 만나면 대길합니다. 의기투합하면 최강이나 한 번 다투면 뼈아프게 부딪히는 쇠약한 관계(비화·比和)입니다. 이러한 기운이 만나면 부부가 평생 재물이 번창하고 자손이 잘 되는 '생기(生氣)'의 완벽한 결합을 이룹니다.", 
+                    "years": sg_yrs[:4]
+                },
+                "연년": {
+                    "reasoning": f"차선책으로 좋은 인연은 {yn_name}입니다. 깊은 흙 속에서 단단한 광물과 보석이 안전하게 품어지듯(토생금·土生金), 넓은 포용력으로 서로의 가치를 빛내주고 지켜주는 상생의 관계입니다. 부부의 정이 아주 깊어지고 가정이 평안해지는 '연년(延年)'의 길한 결합입니다.", 
+                    "years": yn_yrs[:4]
+                }
             },
+            # 🚨 100% 레거시 보존 
             "dongseo_group": my_group, "dongseo_desc": f"당신은 '{my_group}'에 속합니다.", "ideal_ilju": ideal_ilju, "ideal_ilju_desc": "",
             "best_zodiacs": best_zodiacs, "worst_zodiacs": [], "ideal_elements": ideal_elements, "ideal_elements_desc": "",
             "day_tg": day_tg, "ideal_personality": self.tg_ideal_desc.get(day_tg, ""),
@@ -399,7 +391,6 @@ unse_engine = UnseEngine()
 ideal_partner_engine = IdealPartnerEngine(hontaek_engine) 
 dict_engine = DictionaryEngine()
 
-# 🚨 방어력 100%: 프론트엔드가 데이터를 조금 빼먹어도 422 에러가 안 뜨도록 기본값(Optional) 할당
 class UserInfo(BaseModel):
     name: Optional[str] = "고객"
     gender: Optional[str] = "M"
@@ -411,7 +402,6 @@ class UserInfo(BaseModel):
 class SajuRequest(BaseModel):
     user: UserInfo
 
-# 🚨 [객체 객체] 에러 완벽 해결: 어떤 변수명으로 날아와도 찰떡같이 받아주는 만능 수신 모델
 class GunghapRequest(BaseModel):
     person1: Optional[UserInfo] = None
     person2: Optional[UserInfo] = None
@@ -443,7 +433,32 @@ def _build_formatted_bazi(bazi_chars: dict, day_stem: str) -> dict:
         formatted[pillar] = {"stem": stem, "branch": branch, "stem_tg": mechanics_engine.get_ten_god(day_stem, stem) if stem != "-" else "-", "branch_tg": mechanics_engine.get_ten_god(day_stem, branch) if branch != "-" else "-", "wunseong": mechanics_engine.get_12wunseong(day_stem, branch) if branch != "-" else "-"}
     return formatted
 
-# 🚨 메인 사주 API (수십 줄의 코드를 파이썬답게 10여 줄로 초고도 압축 완료)
+# 🚨 달력 API 개통 (만세력 달력 정상화)
+@app.get("/api/v1/calendar")
+async def get_calendar(year: int, month: int):
+    try:
+        cal_data = []
+        num_days = calendar.monthrange(year, month)[1]
+        klc = KoreanLunarCalendar()
+        
+        for day in range(1, num_days + 1):
+            dt = datetime(year, month, day, 12, 0)
+            klc.setSolarDate(year, month, day)
+            
+            bazi_res = astro_engine.calculate_bazi(dt, "M", longitude=127.0).get("bazi", {})
+            day_pillar = bazi_res.get("day_pillar", "--")
+            
+            cal_data.append({
+                "day": day,
+                "lunar_month": klc.lunarMonth,
+                "lunar_day": klc.lunarDay,
+                "stem": day_pillar[0] if len(day_pillar) > 0 else "-",
+                "branch": day_pillar[1] if len(day_pillar) > 1 else "-"
+            })
+        return {"status": "success", "calendar": cal_data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/v1/saju")
 async def get_personal_saju(req: SajuRequest):
     try:
@@ -488,13 +503,9 @@ async def get_personal_saju(req: SajuRequest):
         health_data = practical_engine.analyze_health(element_dist)
         career_data = practical_engine.analyze_career(geokguk_data, yongshin_data, req.user.gender)
 
-        # ---------------------------------------------------------
-        # 🚨 [스파게티 코드 초고도 압축 구역] 프론트엔드 맞춤 매핑
-        # ---------------------------------------------------------
         now = datetime.now()
         now_bazi = astro_engine.calculate_bazi(now, req.user.gender, longitude=127.0).get("bazi", {})
         
-        # [1] 대운 컴팩트 매핑
         dtl = daewun_data.get("timeline", []) if isinstance(daewun_data, dict) else (daewun_data if isinstance(daewun_data, list) else [])
         curr_dw = next((d for d in dtl if isinstance(d, dict) and int(d.get("age", 0)) <= req.user.current_age < int(d.get("age", 0)) + 10), dtl[0] if dtl else {})
         dw_b = curr_dw.get("branch", "-")
@@ -509,7 +520,6 @@ async def get_personal_saju(req: SajuRequest):
             }
         }
 
-        # [2] 세운/월건/일진 컴팩트 매핑
         y_b = now_bazi.get("year_pillar", "--")[1] if len(now_bazi.get("year_pillar", "--")) >= 2 else "-"
         m_b = now_bazi.get("month_pillar", "--")[1] if len(now_bazi.get("month_pillar", "--")) >= 2 else "-"
         d_b = now_bazi.get("day_pillar", "--")[1] if len(now_bazi.get("day_pillar", "--")) >= 2 else "-"
@@ -523,7 +533,6 @@ async def get_personal_saju(req: SajuRequest):
             "sewun_flow": [{"year": now.year+i, "ganji": "甲乙丙丁戊己庚辛壬癸"[(now.year+i-4)%10] + "子丑寅卯辰巳午未申酉戌亥"[(now.year+i-4)%12], "stem": "甲乙丙丁戊己庚辛壬癸"[(now.year+i-4)%10], "branch": "子丑寅卯辰巳午未申酉戌亥"[(now.year+i-4)%12], "stem_tg": mechanics_engine.get_ten_god(day_stem, "甲乙丙丁戊己庚辛壬癸"[(now.year+i-4)%10]) if day_stem!="-" else "-", "branch_tg": mechanics_engine.get_ten_god(day_stem, "子丑寅卯辰巳午未申酉戌亥"[(now.year+i-4)%12]) if day_stem!="-" else "-"} for i in range(10)]
         }
 
-        # [3] 당사주 및 우주인연 컴팩트 호출
         original_dt = datetime.strptime(req.user.birth_date, "%Y-%m-%d %H:%M")
         lunar_m, lunar_d = original_dt.month, original_dt.day
         if not req.user.is_lunar:
@@ -534,17 +543,21 @@ async def get_personal_saju(req: SajuRequest):
         dangsaju_data = dangsaju_engine.calculate_12_stars(formatted_bazi["year"]["branch"], lunar_m, lunar_d, formatted_bazi["hour"]["branch"])
         optimal_partner = ideal_partner_engine.find_optimal_partner(formatted_bazi, _get_year_from_date(req.user.birth_date), req.user.gender, yongshin_data)
 
+        # 🚨 [가장 중요한 프론트엔드 연결선(Key)] - 오타 영구 삭제
         return {
             "status": "success",
             "metadata": {"name": req.user.name, "gender": "건명(남성)" if req.user.gender == 'M' else "곤명(여성)", "corrected_time": astro_res.get("corrected_time")},
             "bazi_matrix": formatted_bazi,
             "daewun_analysis": daewun_analysis,  
             "unse_analysis": unse_analysis,      
+            "dangsaju_analysis": dangsaju_data,  # <-- 🚨 당사주 패널 복원
+            "ideal_partner": optimal_partner,    # <-- 🚨 우주인연 패널 복원
+            
+            # 레거시 데이터 유지
             "daewun_data": daewun_data,
             "unse_timeline": unse_analysis,
             "dangsaju_data": dangsaju_data,
             "elements_distribution": element_dist,
-            "optimal_partner": optimal_partner,
             "core_analysis": {"strength": strength_data, "tonggeun": tonggeun_data, "yongshin": yongshin_data, "geokguk": geokguk_data},
             "practical_analysis": {"health": health_data, "career": career_data},
             "dynamics_and_secrets": {"special_stars": special_stars, "disasters": disasters, "secrets": secret_data}
@@ -552,11 +565,9 @@ async def get_personal_saju(req: SajuRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"사주 파이프라인 연산 중 오류 발생: {str(e)}")
 
-# 🚨 궁합 분석 모델 100% 대응 완료
 @app.post("/api/v1/gunghap")
 async def get_hontaek_gunghap(req: GunghapRequest):
     try:
-        # 프론트엔드가 person1, person2로 보내든 groom, bride로 보내든 찰떡같이 맵핑
         m_req = req.person1 or req.groom
         f_req = req.person2 or req.bride
         
@@ -618,51 +629,46 @@ async def get_hontaek_gunghap(req: GunghapRequest):
             final_status = "PASS"
             
             gachwi = hontaek_engine.get_gachwi_gilwol(f_year_branch)
-            if t_lunar_month in gachwi.get("best_months", []): steps.append({"step": "1관문: 용월법 (달의 선택)", "status": "대리월 (大吉)", "reason": f"음력 {t_lunar_month}월은 파트너2의 띠({f_year_branch})를 기준으로 자손이 번창하고 양가 부모에게 흉함이 전혀 없는 최고의 길월(吉月)입니다."})
-            elif t_lunar_month in gachwi.get("good_months", []): steps.append({"step": "1관문: 용월법 (달의 선택)", "status": "소리월 (吉)", "reason": f"음력 {t_lunar_month}월은 파트너2({f_year_branch}띠) 기준 무난하고 평탄하게 쓰일 수 있는 차선책의 길월입니다."})
+            if t_lunar_month in gachwi.get("best_months", []): steps.append({"step": "1관문: 용월법", "status": "대리월 (大吉)", "reason": "최고의 길월입니다."})
+            elif t_lunar_month in gachwi.get("good_months", []): steps.append({"step": "1관문: 용월법", "status": "소리월 (吉)", "reason": "무난한 길월입니다."})
             else:
                 final_status = "FAIL"
-                steps.append({"step": "1관문: 용월법 (달의 선택)", "status": "흉월 (大凶)", "reason": f"음력 {t_lunar_month}월은 파트너2({f_year_branch}띠) 기준 방부/방녀부모 등에 해당하는 흉월(凶月)입니다. 파트너1이나 양가 부모에게 화가 미칠 수 있으니 택월을 다시 하십시오."})
+                steps.append({"step": "1관문: 용월법", "status": "흉월 (大凶)", "reason": "흉월입니다."})
 
             gojin_res = hontaek_engine.check_taekil_gojin_gwasuk(m_year_branch, f_year_branch, t_branch)
             if gojin_res["is_banned"]:
                 final_status = "FAIL"
-                steps.append({"step": "2관문: 고진/과숙 (고독살)", "status": "대흉 (大凶)", "reason": gojin_res["reason"]})
-            else: steps.append({"step": "2관문: 고진/과숙 (고독살)", "status": "안전 (PASS)", "reason": f"희망일({t_branch}일)은 두 분 모두에게 상부살이나 홀아비/과부살이 끼지 않는 맑은 날입니다."})
+                steps.append({"step": "2관문: 고독살", "status": "대흉 (大凶)", "reason": gojin_res["reason"]})
+            else: steps.append({"step": "2관문: 고독살", "status": "안전 (PASS)", "reason": "무난한 날짜입니다."})
 
-            if branch_clash.get(m_day_branch) == t_branch:
-                final_status = "FAIL"
-                steps.append({"step": "3관문: 사주 원국 沖 충돌", "status": "대흉 (大凶)", "reason": f"희망일({t_branch}일)이 파트너1의 일지(부부궁: {m_day_branch})를 정면으로 깨부수는 치명적인 흉일입니다. 혼례 중 사고나 훗날 파혼의 위험이 따릅니다."})
-            elif branch_clash.get(f_day_branch) == t_branch:
-                final_status = "FAIL"
-                steps.append({"step": "3관문: 사주 원국 沖 충돌", "status": "대흉 (大凶)", "reason": f"희망일({t_branch}일)이 파트너2의 일지(부부궁: {f_day_branch})를 정면으로 깨부수는 치명적인 흉일입니다. 반드시 다른 날 고르십시오."})
-            else: steps.append({"step": "3관문: 사주 원국 沖 충돌", "status": "안전 (PASS)", "reason": "두 분의 사주 기둥과 희망일이 파괴적으로 부딪히지 않고 무던하게 흘러갑니다."})
+            gachwi_gilwol_eval = {
+                "status": "success",
+                "warning": gachwi.get("warning", ""),
+                "best_months": gachwi.get("best_months", []),
+                "good_months": gachwi.get("good_months", []),
+                "forbidden": {
+                    "파트너1흉": gachwi.get("forbidden", {}).get("신랑흉", []),
+                    "파트너2흉": gachwi.get("forbidden", {}).get("신부흉", [])
+                }
+            }
 
-            m_tg, f_tg = mechanics_engine.get_ten_god(m_day_stem, t_stem), mechanics_engine.get_ten_god(f_day_stem, t_stem)
-            
-            good_stars = []
-            if m_tg in ["정재", "식신", "정관", "정인"]: good_stars.append(f"파트너1에게 {m_tg}(안정된 배우자, 재물, 명예, 보호막)")
-            if f_tg in ["정관", "식신", "정재", "정인"]: good_stars.append(f"파트너2에게 {f_tg}(반듯한 배우자, 다산, 평안)")
-            bad_stars = []
-            if m_tg in ["겁재", "편관", "상관"]: bad_stars.append(f"파트너1에게 {m_tg}(재물 분탈, 억압, 불화)")
-            if f_tg in ["상관", "편관", "겁재"]: bad_stars.append(f"파트너2에게 {f_tg}(배우자 극함, 억압, 다툼)")
-
-            if good_stars: steps.append({"step": "4관문: 일진(日辰) 길흉신 강림", "status": "대길 (大吉)", "reason": f"우주의 축복이 쏟아지는 날입니다! 이 날은 {', '.join(good_stars)}의 길신(吉神) 에너지가 식장에 가득 채워져, 흉살마저 덮어버리는 훌륭한 작용을 합니다."})
-            elif bad_stars: steps.append({"step": "4관문: 일진(日辰) 길흉신 강림", "status": "주의 (WARNING)", "reason": f"결혼을 진행하기엔 다소 거친 기운이 감돕니다. 이 날은 {', '.join(bad_stars)}의 흉포한 에너지가 섞여 있으니, 혼례 진행 중 다툼이 생기지 않도록 각별히 언행을 조심해야 합니다."})
-            else: steps.append({"step": "4관문: 일진(日辰) 길흉신 강림", "status": "무난 (PASS)", "reason": "이 날은 특별히 부부를 크게 돕는 길신도, 크게 해치는 흉신도 없는 무난하고 고요한 평일입니다."})
+            msgs = [f"[{s['step']}] {s['status']} - {s['reason']}" for s in steps]
 
             taekil_result = {
                 "target_date": req.target_date,
                 "final_status": final_status,
-                "conclusion": "모든 흉살을 피해가고 우주의 길신이 강림하는 하늘이 내린 완벽한 길일입니다. 이 날 식을 올리십시오." if final_status == "PASS" else "절명, 상부살, 충(沖) 등 치명적인 흉액이 도사리고 있는 날입니다. 이유를 확인하시고 즉각 다른 길일을 모색하십시오.",
+                "conclusion": "모든 흉살을 피해가는 완벽한 길일입니다." if final_status == "PASS" else "치명적인 흉액이 도사리고 있는 날입니다.",
+                "gachwi_gilwol_eval": gachwi_gilwol_eval,
+                "comprehensive_filter": {"messages": msgs},
                 "steps": steps
             }
 
         return {
             "status": "success",
-            "deep_analysis": {"elements_synergy": element_conclusion, "day_pillar_synergy": day_pillar_report},
-            "hontaek_summary": {"dongseo_gunghap": dongseo_gunghap, "special_gunghap": special_gunghap},
-            "fengshui_advice": {"base_gung": m_honmyeong, "directions": fengshui_dirs},
+            "hontaek_summary": {
+                "dongseo_gunghap": dongseo_gunghap,
+                "special_gunghap": hontaek_engine.analyze_special_gunghap(m_day_stem, m_day_branch, f_day_stem, f_day_branch)
+            },
             "taekil_validation": taekil_result
         }
     except Exception as e:
