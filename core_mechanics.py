@@ -222,7 +222,8 @@ class MechanicsEngine:
             "target": target_stem,
             "is_rooted": False,
             "total_power": 0,
-            "roots": []
+            "roots": [],
+            "desc": ""
         }
         
         # 🚨 [보완 적용] 프론트엔드 비정상 입력(None, List 등) 차단
@@ -233,6 +234,8 @@ class MechanicsEngine:
         if not target_element:
             return result
 
+        root_desc_list = []
+
         for pillar_name, branch in branches_dict.items():
             hidden = self.get_hidden_stems(branch)
             
@@ -241,19 +244,45 @@ class MechanicsEngine:
                 
                 if h_stem and ELEMENT_MAP.get(h_stem) == target_element:
                     weight = 1.2 if h_stem == target_stem else 1.0
-                    # 🚨 [보완 적용] 부동소수점 오차 방지를 위한 반올림 처리
+                    # 부동소수점 오차 방지를 위한 반올림 처리
                     calculated_power = round(power * weight)
                     
                     result["is_rooted"] = True
                     result["total_power"] += calculated_power
+                    
+                    type_str = "여기" if root_type == "initial" else "중기" if root_type == "middle" else "정기"
+                    root_desc_list.append(f"{branch}({type_str})")
+                    
                     result["roots"].append({
                         "pillar": pillar_name,
                         "branch": branch,
-                        "type": "여기" if root_type == "initial" else "중기" if root_type == "middle" else "정기",
+                        "type": type_str,
                         "hidden_stem": h_stem,
                         "power": calculated_power
                     })
-                    
+
+        # 🚨 [핵심 버그 수정] 통근력 임계값(Threshold)에 따른 텍스트 강제 논리 교정
+        total_p = result["total_power"]
+        
+        if total_p >= 30:
+            status_text = "튼튼하게 굳건히 뿌리를 내려"
+            trait_text = "어떤 시련에도 흔들림 없는 강력한 자립심과 추진력을 발휘합니다."
+        elif total_p >= 15:
+            status_text = "다소 얕고 미약하게 뿌리를 내리고 있어"
+            trait_text = "기본적인 줏대는 지니고 있으나, 큰 스트레스나 외부 환경 변화에 결단력이 쉽게 흔들릴 수 있습니다."
+        elif total_p > 0:
+            status_text = "아주 미세한 잔뿌리만 두고 있어"
+            trait_text = "스스로의 힘(자립)보다는 타인이나 든든한 조직의 조력이 뒷받침되어야 능력을 발휘할 수 있습니다."
+        else:
+            status_text = "전혀 뿌리를 내리지 못해(무근, 無根)"
+            trait_text = "줏대가 약해지기 쉽고 주변 상황에 쉽게 휩쓸리거나 의존하려는 경향이 짙어질 수 있습니다."
+
+        if result["is_rooted"]:
+            roots_str = ", ".join(root_desc_list)
+            result["desc"] = f"일간({target_stem})이 지지 {roots_str}에 {status_text} {trait_text}"
+        else:
+            result["desc"] = f"일간({target_stem})이 지지에 {status_text} {trait_text}"
+            
         return result
 
     def get_five_elements_distribution(self, stems_list: list, branches_list: list) -> dict:
@@ -309,7 +338,8 @@ class MechanicsEngine:
     # ==========================================
     # [Phase 9 추가] 대운(10년 주기) & 세운(1년 주기) 연산 알고리즘
     # ==========================================
-    def get_daewun_sequence(self, gender: str, year_stem: str, month_stem: str, month_branch: str, daewun_num: int = 1, count: int = 8) -> dict:
+    # 🚨 [수정 적용] 대운 10개(count=10) 도출 패치
+    def get_daewun_sequence(self, gender: str, year_stem: str, month_stem: str, month_branch: str, daewun_num: int = 1, count: int = 10) -> dict:
         """
         양남음녀(陽男陰女) 순행, 음남양녀(陰男陽女) 역행 법칙에 따라 대운의 흐름과 기둥을 도출합니다.
         """
