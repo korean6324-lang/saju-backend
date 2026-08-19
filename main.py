@@ -573,9 +573,6 @@ async def get_personal_saju(req: SajuRequest):
         tonggeun_data = mechanics_engine.check_tonggeun(day_stem, branches_dict)
         strength_data = yongshin_engine.determine_strength(formatted_bazi)
         
-        # ---------------------------------------------------------
-        # 🚨 [버그 수정 완료] 신강/신약 아군 vs 적군 % (가중치 기반 정밀 계산)
-        # ---------------------------------------------------------
         local_element_map = {
             "甲": "목", "乙": "목", "寅": "목", "卯": "목",
             "丙": "화", "丁": "화", "巳": "화", "午": "화",
@@ -591,9 +588,6 @@ async def get_personal_saju(req: SajuRequest):
             
             if day_element:
                 ally_elements = [day_element, producing_map.get(day_element)]
-                
-                # 명리학 정밀 가중치: 월지(30), 일지(15), 년/시지 및 월/시간(각 10), 년간(5)
-                # (일간 10점 포함 총 100점 만점 스케일링)
                 weights = {
                     "year": {"stem": 5, "branch": 10},
                     "month": {"stem": 10, "branch": 30},
@@ -613,7 +607,6 @@ async def get_personal_saju(req: SajuRequest):
                         
                 ally_pct = ally_score
             
-            # 용신 엔진의 '실제 정밀 판별(status)' 값을 기준으로 해설 강제 매핑 및 % 캘리브레이션
             status_text = strength_data.get("status", strength_data.get("strength", ""))
             
             if "극신강" in status_text or "태강" in status_text:
@@ -629,18 +622,13 @@ async def get_personal_saju(req: SajuRequest):
                 ally_pct = min(ally_pct, 45)
                 strength_desc = "적군의 기운이 다소 강한 [신약(身弱)] 사주입니다. 내 힘이 빠져나가고 있으니, 타인과의 협력, 든든한 조직, 또는 인성(배움/자격증)을 통해 힘을 보충해야 유리합니다."
             else:
-                # 중화
                 ally_pct = max(40, min(ally_pct, 60))
                 strength_desc = "아군과 적군의 세력이 균형을 이루는 [중화(中和)] 사주입니다. 운의 흐름에 따라 유연하게 대처할 수 있는 안정적인 구조입니다."
 
             enemy_pct = 100 - ally_pct
-
             strength_data["ally_pct"] = ally_pct
             strength_data["enemy_pct"] = enemy_pct
             strength_data["desc"] = strength_desc
-        # ---------------------------------------------------------
-        # 🚨 [추가 구역] 끝
-        # ---------------------------------------------------------
 
         yongshin_data = yongshin_engine.determine_yongshin(formatted_bazi, strength_data)
         geokguk_data = yongshin_engine.determine_geokguk(formatted_bazi, hidden_stems)
@@ -653,26 +641,76 @@ async def get_personal_saju(req: SajuRequest):
         health_data = practical_engine.analyze_health(element_dist)
         career_data = practical_engine.analyze_career(geokguk_data, yongshin_data, req.user.gender)
 
+        # ---------------------------------------------------------
+        # 🚨 [연결선 복원 완료] 대운 및 실전 운세 스캐너 데이터 조립
+        # (KeyError 방어를 위한 강력한 Dictionary/List 변환기 적용)
+        # ---------------------------------------------------------
         now = datetime.now()
         now_bazi = astro_engine.calculate_bazi(now, req.user.gender, longitude=127.0).get("bazi", {})
+        
+        # 1. 대운(10년) 분석 데이터 조립 (딕셔너리/리스트 예외처리 완벽 방어)
+        daewun_analysis = {}
+        daewun_list = []
+        
+        # 백엔드 엔진이 리스트가 아닌 딕셔너리로 대운을 반환할 경우 알아서 리스트만 추출
+        if isinstance(daewun_data, list):
+            daewun_list = daewun_data
+        elif isinstance(daewun_data, dict):
+            for k, v in daewun_data.items():
+                if isinstance(v, list):
+                    daewun_list = v
+                    break
+
+        if daewun_list and len(daewun_list) > 0:
+            # 현재 나이에 해당하는 대운 찾기
+            current_daewun = daewun_list[0] # 기본값은 첫번째 대운
+            for dw in daewun_list:
+                if isinstance(dw, dict):
+                    start_age = int(dw.get("age", 0))
+                    end_age = start_age + 9
+                    if start_age <= req.user.current_age <= end_age:
+                        current_daewun = dw
+                        break
+            
+            if isinstance(current_daewun, dict):
+                dw_ganji = current_daewun.get("ganji", "--")
+                if len(dw_ganji) >= 2:
+                    dw_stem, dw_branch = dw_ganji[0], dw_ganji[1]
+                    dw_tg = mechanics_engine.get_ten_god(day_stem, dw_branch)
+                    
+                    # UnseEngine에 10년 대운 분석 의뢰
+                    daewun_result = unse_engine.analyze_daewun(formatted_bazi, dw_branch, dw_tg, yongshin_data)
+                    
+                    daewun_analysis = {
+                        "current_daewun": f"{current_daewun.get('age', '')}세 ~ {current_daewun.get('age', 0)+9}세 ({dw_ganji})",
+                        "status": daewun_result.get("overall_status"),
+                        "desc": daewun_result.get("overall_desc"),
+                        "events": daewun_result.get("events", [])
+                    }
+
+        # 2. 세운/월건/일진 분석 데이터 조립
         year_pillar = now_bazi.get("year_pillar", "--")
-        year_branch = year_pillar[1] if len(year_pillar) == 2 else "-"
+        year_branch = year_pillar[1] if len(year_pillar) >= 2 else "-"
         year_tg = mechanics_engine.get_ten_god(day_stem, year_branch) if year_branch != "-" else "-"
         sewun_result = unse_engine.analyze_sewun(formatted_bazi, year_branch, year_tg, yongshin_data)
         sewun_result['title'] = f"{now.year}년 ({year_pillar}) 올해의 운세"
         
         month_pillar = now_bazi.get("month_pillar", "--")
-        month_branch = month_pillar[1] if len(month_pillar) == 2 else "-"
+        month_branch = month_pillar[1] if len(month_pillar) >= 2 else "-"
         month_tg = mechanics_engine.get_ten_god(day_stem, month_branch) if month_branch != "-" else "-"
         wolgeon_result = unse_engine.analyze_wolgeon(formatted_bazi, month_branch, month_tg, yongshin_data)
         wolgeon_result['title'] = f"{now.month}월 ({month_pillar}) 이달의 운세"
         
         day_curr_pillar = now_bazi.get("day_pillar", "--")
-        day_curr_branch = day_curr_pillar[1] if len(day_curr_pillar) == 2 else "-"
+        day_curr_branch = day_curr_pillar[1] if len(day_curr_pillar) >= 2 else "-"
         day_curr_tg = mechanics_engine.get_ten_god(day_stem, day_curr_branch) if day_curr_branch != "-" else "-"
         iljin_result = unse_engine.analyze_iljin(formatted_bazi, day_curr_branch, day_curr_tg, yongshin_data)
         iljin_result['title'] = f"오늘 ({day_curr_pillar}일) 하루 일진"
+        
         unse_timeline = {"sewun": sewun_result, "wolgeon": wolgeon_result, "iljin": iljin_result}
+        # ---------------------------------------------------------
+        # 🚨 [연결선 복원 끝]
+        # ---------------------------------------------------------
 
         original_dt = datetime.strptime(req.user.birth_date, "%Y-%m-%d %H:%M")
         lunar_m, lunar_d = original_dt.month, original_dt.day
@@ -696,8 +734,10 @@ async def get_personal_saju(req: SajuRequest):
                 "corrected_time": astro_res.get("corrected_time")
             },
             "bazi_matrix": formatted_bazi,
-            "daewun_data": daewun_data,
-            "unse_timeline": unse_timeline,
+            "daewun_analysis": daewun_analysis,  # 🚨 대운 분석 데이터
+            "unse_analysis": unse_timeline,      # 🚨 운세 분석 데이터 (프론트엔드와 규격 일치)
+            "daewun_data": daewun_data,          # 기존 원시 대운 배열 데이터 유지
+            "unse_timeline": unse_timeline,      # 기존 호환성 유지
             "dangsaju_data": dangsaju_data,
             "elements_distribution": element_dist,
             "optimal_partner": optimal_partner,
