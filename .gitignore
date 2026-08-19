@@ -1,0 +1,7 @@
+# Python 찌꺼기 방어벽
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+.env
