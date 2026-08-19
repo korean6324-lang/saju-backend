@@ -20,6 +20,24 @@ from logic_unse import UnseEngine
 from dictionary import DictionaryEngine
 
 # ==========================================
+# 🚨 12운성 해설 DB (누락된 설명 복원)
+# ==========================================
+WUNSEONG_DESC = {
+    "장생": "만물이 태어나듯 새로운 시작과 후원, 성장의 에너지가 솟아나는 길한 시기입니다.",
+    "목욕": "호기심과 매력이 발산되는 시기. 구설수나 감정의 기복, 사치와 유흥을 경계해야 합니다.",
+    "관대": "사회적 자립과 발전을 이루는 시기. 자신감이 넘치나 아집으로 인한 마찰을 주의해야 합니다.",
+    "건록": "경험이 쌓여 독자적인 성취와 재물을 얻는 튼튼한 시기입니다. 독립과 자수성가에 유리합니다.",
+    "제왕": "에너지가 최정점에 달하는 시기. 강력한 리더십을 발휘하지만, 꺾임을 대비해 겸손해야 합니다.",
+    "쇠": "정점을 지나 서서히 물러나는 시기. 경험과 노련함으로 안정을 추구하고 타협하는 것이 좋습니다.",
+    "병": "기운이 쇠약해지고 멈추는 시기. 육체적/정신적 휴식이 필요하며 무리한 계획은 금물입니다.",
+    "사": "활동이 정지되고 고요해지는 시기. 내면적 성찰, 연구, 정신적 활동에 적합합니다.",
+    "묘": "기운이 갇히고 갈무리되는 시기. 재물의 축적(저축)에는 유리하나, 답답함과 단절을 느낄 수 있습니다.",
+    "절": "모든 기운이 끊어지고 완전히 새로운 시작을 준비하는 절대 무(無)의 상태. 과거를 청산하고 전환점을 맞이합니다.",
+    "태": "새로운 생명이 잉태되듯, 조심스럽게 새로운 계획이나 아이디어가 싹트는 시기입니다.",
+    "양": "안전한 환경에서 보호받으며 자라나는 시기. 무리한 확장보다 내실과 안정이 중요합니다."
+}
+
+# ==========================================
 # 🚨 1-1. 업그레이드된 PracticalEngine 내재화
 # ==========================================
 class PracticalEngine:
@@ -292,7 +310,7 @@ class FengShuiHontaekEngine:
 
             if is_match:
                 freq_title = f"1. 생체 주파수와 공간 에너지의 완벽한 조화 ({m_group} 결합)"
-                freq_desc = f"두 분은 '{m_group}'이라는 동일한 주파수 대역을 수신합니다. 결혼이나 동거를 통해 한 공간에 살게 될 경우, 침대의 방향이나 현관문의 위치 등 공간의 에너지가 두 사람 모두에게 건강과 재물을 증폭시켜주는 강력한 시너지 구조가 형성됩니다."
+                freq_desc = f"두 분은 '{m_group}'이라는 동일한 주파수 대역을 수신합니다. 결혼이나 동거를 통해 한 공간에 살게 될 경우, 침대의 방향이나 현관문의 위치 등 공간의 에너지가 두 사람 모두에게 건강과 재물을 증폭시켜주는 강력 시너지 구조가 형성됩니다."
             else:
                 freq_title = "1. 생체 주파수와 공간 에너지의 정반대 대립 (동사택 vs 서사택)"
                 freq_desc = "동사택과 서사택은 마치 'AM 라디오와 FM 라디오'처럼 수신하는 주파수 대역이 완전히 다릅니다. 한 공간에 살게 되면 심각한 모순이 발생하여, 한쪽을 반드시 희생시키거나 기를 빨아먹는 구조가 되므로 장기적으로 원인 모를 컨디션 난조나 무기력증에 시달리게 됩니다."
@@ -642,53 +660,78 @@ async def get_personal_saju(req: SajuRequest):
         career_data = practical_engine.analyze_career(geokguk_data, yongshin_data, req.user.gender)
 
         # ---------------------------------------------------------
-        # 🚨 [연결선 복원 완료] 대운 및 실전 운세 스캐너 데이터 조립
-        # (KeyError 방어를 위한 강력한 Dictionary/List 변환기 적용)
+        # 🚨 [최종 복원 튜닝 구역] 대운 및 세운 프론트엔드 맞춤 매핑
         # ---------------------------------------------------------
         now = datetime.now()
         now_bazi = astro_engine.calculate_bazi(now, req.user.gender, longitude=127.0).get("bazi", {})
         
-        # 1. 대운(10년) 분석 데이터 조립 (딕셔너리/리스트 예외처리 완벽 방어)
-        daewun_analysis = {}
-        daewun_list = []
-        
-        # 백엔드 엔진이 리스트가 아닌 딕셔너리로 대운을 반환할 경우 알아서 리스트만 추출
-        if isinstance(daewun_data, list):
-            daewun_list = daewun_data
-        elif isinstance(daewun_data, dict):
-            for k, v in daewun_data.items():
-                if isinstance(v, list):
-                    daewun_list = v
-                    break
+        # 1. 10년 대운(daewun_data) 정밀 파싱 (빈 한자 추출 해결)
+        daewun_timeline = []
+        if isinstance(daewun_data, dict) and "timeline" in daewun_data:
+            daewun_timeline = daewun_data["timeline"]
+        elif isinstance(daewun_data, list):
+            daewun_timeline = daewun_data
 
-        if daewun_list and len(daewun_list) > 0:
-            # 현재 나이에 해당하는 대운 찾기
-            current_daewun = daewun_list[0] # 기본값은 첫번째 대운
-            for dw in daewun_list:
-                if isinstance(dw, dict):
-                    start_age = int(dw.get("age", 0))
-                    end_age = start_age + 9
-                    if start_age <= req.user.current_age <= end_age:
-                        current_daewun = dw
-                        break
+        daewun_flow_payload = None
+        if daewun_timeline and len(daewun_timeline) > 0:
+            pillars_arr = []
+            ages_arr = []
+            current_daewun = daewun_timeline[0]
             
-            if isinstance(current_daewun, dict):
-                dw_ganji = current_daewun.get("ganji", "--")
-                if len(dw_ganji) >= 2:
-                    dw_stem, dw_branch = dw_ganji[0], dw_ganji[1]
-                    dw_tg = mechanics_engine.get_ten_god(day_stem, dw_branch)
+            for dw in daewun_timeline:
+                if isinstance(dw, dict):
+                    # stem, branch 추출 및 ganji 조립
+                    s = dw.get("stem", "-")
+                    b = dw.get("branch", "-")
+                    ganji = s + b if s != "-" and b != "-" else dw.get("ganji", "--")
+                    pillars_arr.append(ganji)
                     
-                    # UnseEngine에 10년 대운 분석 의뢰
-                    daewun_result = unse_engine.analyze_daewun(formatted_bazi, dw_branch, dw_tg, yongshin_data)
+                    try:
+                        start_age = int(dw.get("age", dw.get("start_age", 0)))
+                    except:
+                        start_age = 0
+                    ages_arr.append(start_age)
                     
-                    daewun_analysis = {
-                        "current_daewun": f"{current_daewun.get('age', '')}세 ~ {current_daewun.get('age', 0)+9}세 ({dw_ganji})",
-                        "status": daewun_result.get("overall_status"),
-                        "desc": daewun_result.get("overall_desc"),
-                        "events": daewun_result.get("events", [])
-                    }
+                    # 현재 나이가 속한 대운 찾기
+                    if start_age <= req.user.current_age < start_age + 10:
+                        current_daewun = dw
+            
+            # 현재 대운 분석 텍스트 생성
+            dw_s = current_daewun.get("stem", "-")
+            dw_b = current_daewun.get("branch", "-")
+            dw_ganji = dw_s + dw_b if dw_s != "-" and dw_b != "-" else current_daewun.get("ganji", "--")
+            dw_age = int(current_daewun.get("age", current_daewun.get("start_age", 0)))
+            
+            frontend_payload = {}
+            if len(dw_ganji) >= 2 and dw_ganji != "--":
+                dw_branch = dw_ganji[1]
+                dw_tg = mechanics_engine.get_ten_god(day_stem, dw_branch) if day_stem != "-" else "-"
+                daewun_result = unse_engine.analyze_daewun(formatted_bazi, dw_branch, dw_tg, yongshin_data)
+                
+                frontend_payload = {
+                    "title": f"현재 대운: {dw_age}세 ~ {dw_age+9}세 ({dw_ganji})",
+                    "subtitle": daewun_result.get("overall_status"),
+                    "progress_message": daewun_result.get("overall_desc")
+                }
+            else:
+                frontend_payload = {
+                    "title": "현재 대운 분석 불가",
+                    "subtitle": "데이터 누락",
+                    "progress_message": "엔진에서 대운 간지(干支) 데이터를 정상적으로 반환하지 않았습니다."
+                }
 
-        # 2. 세운/월건/일진 분석 데이터 조립
+            daewun_flow_payload = {
+                "daewun_flow": {
+                    "pillars": pillars_arr,
+                    "ages": ages_arr
+                },
+                "current_status": {
+                    "active_daewun": { "started_at_age": dw_age },
+                    "frontend_ui_payload": frontend_payload
+                }
+            }
+
+        # 2. 실전 운세 스캐너 조립 (UnseScanner.jsx 용 객체화 + 12운성 테마 주입)
         year_pillar = now_bazi.get("year_pillar", "--")
         year_branch = year_pillar[1] if len(year_pillar) >= 2 else "-"
         year_tg = mechanics_engine.get_ten_god(day_stem, year_branch) if year_branch != "-" else "-"
@@ -707,9 +750,47 @@ async def get_personal_saju(req: SajuRequest):
         iljin_result = unse_engine.analyze_iljin(formatted_bazi, day_curr_branch, day_curr_tg, yongshin_data)
         iljin_result['title'] = f"오늘 ({day_curr_pillar}일) 하루 일진"
         
-        unse_timeline = {"sewun": sewun_result, "wolgeon": wolgeon_result, "iljin": iljin_result}
-        # ---------------------------------------------------------
-        # 🚨 [연결선 복원 끝]
+        wunseong_name = mechanics_engine.get_12wunseong(day_stem, year_branch) if year_branch != "-" else "-"
+        wunseong_desc = ""
+        try:
+            wunseong_desc = WUNSEONG_DESC.get(wunseong_name, f"올해는 [{wunseong_name}]의 에너지가 작용하는 시기입니다.")
+        except NameError:
+             wunseong_desc = f"올해는 [{wunseong_name}]의 에너지가 작용하는 시기입니다."
+        
+        # 향후 10년 세운 흐름 자동 생성 로직
+        sewun_flow_arr = []
+        base_year = now.year
+        for i in range(10):
+            t_year = base_year + i
+            offset = t_year - 1984 # 1984(갑자) 기준 단순 계산
+            s_char = "甲乙丙丁戊己庚辛壬癸"[offset % 10]
+            b_char = "子丑寅卯辰巳午未申酉戌亥"[offset % 12]
+            s_tg = mechanics_engine.get_ten_god(day_stem, s_char) if day_stem != "-" else "-"
+            b_tg = mechanics_engine.get_ten_god(day_stem, b_char) if day_stem != "-" else "-"
+            
+            sewun_flow_arr.append({
+                "year": t_year,
+                "ganji": s_char + b_char,
+                "stem": s_char,
+                "branch": b_char,
+                "stem_tg": s_tg,
+                "branch_tg": b_tg
+            })
+
+        unse_timeline = {
+            "sewun": sewun_result, 
+            "wolgeon": wolgeon_result, 
+            "iljin": iljin_result,
+            "current_sewun": {
+                "year": now.year, 
+                "ganji": year_pillar, 
+                "wunseong": {
+                    "name": wunseong_name, 
+                    "desc": wunseong_desc
+                }
+            },
+            "sewun_flow": sewun_flow_arr
+        }
         # ---------------------------------------------------------
 
         original_dt = datetime.strptime(req.user.birth_date, "%Y-%m-%d %H:%M")
@@ -734,10 +815,10 @@ async def get_personal_saju(req: SajuRequest):
                 "corrected_time": astro_res.get("corrected_time")
             },
             "bazi_matrix": formatted_bazi,
-            "daewun_analysis": daewun_analysis,  # 🚨 대운 분석 데이터
-            "unse_analysis": unse_timeline,      # 🚨 운세 분석 데이터 (프론트엔드와 규격 일치)
-            "daewun_data": daewun_data,          # 기존 원시 대운 배열 데이터 유지
-            "unse_timeline": unse_timeline,      # 기존 호환성 유지
+            "daewun_analysis": daewun_flow_payload if daewun_flow_payload else {"daewun_flow": {"pillars": [], "ages": []}},  
+            "unse_analysis": unse_timeline,      
+            "daewun_data": daewun_data,
+            "unse_timeline": unse_timeline,
             "dangsaju_data": dangsaju_data,
             "elements_distribution": element_dist,
             "optimal_partner": optimal_partner,
